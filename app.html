@@ -1,0 +1,962 @@
+<!doctype html>
+<html lang="id">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Sistem Klasifikasi Kasus Kriminal - Polsek Sungai Pinyuh</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+            min-height: 100vh;
+            color: #eee;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        header {
+            text-align: center;
+            padding: 30px 0;
+            border-bottom: 2px solid #e94560;
+            margin-bottom: 30px;
+        }
+
+        header h1 {
+            font-size: 2.5em;
+            color: #e94560;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+            margin-bottom: 10px;
+        }
+
+        header p {
+            color: #a0a0a0;
+            font-size: 1.1em;
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 5px 15px;
+            border-radius: 20px;
+            font-size: 0.85em;
+            font-weight: bold;
+            margin: 5px;
+        }
+
+        .badge-primary {
+            background: #e94560;
+            color: white;
+        }
+
+        .badge-success {
+            background: #00d9ff;
+            color: #1a1a2e;
+        }
+
+        .badge-warning {
+            background: #ffc107;
+            color: #1a1a2e;
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 25px;
+            margin-bottom: 30px;
+        }
+
+        @media (max-width: 900px) {
+            .grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .card {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 15px;
+            padding: 25px;
+            backdrop-filter: blur(10px);
+            transition: transform .3s, box-shadow .3s;
+        }
+
+        .card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 30px rgba(233, 69, 96, 0.2);
+        }
+
+        .card h2 {
+            color: #e94560;
+            margin-bottom: 20px;
+            font-size: 1.5em;
+            border-left: 4px solid #e94560;
+            padding-left: 15px;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            color: #00d9ff;
+            font-weight: 600;
+        }
+
+        input,
+        textarea,
+        select {
+            width: 100%;
+            padding: 12px 15px;
+            border: 2px solid rgba(255, 255, 255, 0.1);
+            border-radius: 8px;
+            background: rgba(0, 0, 0, 0.3);
+            color: #fff;
+            font-size: 1em;
+            transition: border-color .3s;
+        }
+
+        input:focus,
+        textarea:focus,
+        select:focus {
+            outline: none;
+            border-color: #e94560;
+        }
+
+        textarea {
+            min-height: 120px;
+            resize: vertical;
+        }
+
+        select option {
+            background: #1a1a2e;
+        }
+
+        .btn {
+            padding: 12px 30px;
+            border: none;
+            border-radius: 8px;
+            font-size: 1em;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all .3s;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .btn-primary {
+            background: linear-gradient(45deg, #e94560, #ff6b6b);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            transform: scale(1.05);
+            box-shadow: 0 5px 20px rgba(233, 69, 96, 0.4);
+        }
+
+        .btn-secondary {
+            background: rgba(255, 255, 255, 0.1);
+            color: #00d9ff;
+            border: 2px solid #00d9ff;
+        }
+
+        .btn-secondary:hover {
+            background: #00d9ff;
+            color: #1a1a2e;
+        }
+
+        .btn:disabled {
+            opacity: .5;
+            cursor: not-allowed;
+            transform: none !important;
+        }
+
+        .result-box {
+            display: none;
+            margin-top: 25px;
+            padding: 25px;
+            border-radius: 12px;
+            background: rgba(0, 0, 0, 0.3);
+            border: 2px solid;
+            animation: fadeIn .5s ease;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .prediction-main {
+            font-size: 2em;
+            font-weight: bold;
+            text-align: center;
+            margin: 15px 0;
+            padding: 20px;
+            border-radius: 10px;
+        }
+
+        .confidence-bar {
+            width: 100%;
+            height: 30px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 15px;
+            overflow: hidden;
+            margin: 10px 0;
+        }
+
+        .confidence-fill {
+            height: 100%;
+            border-radius: 15px;
+            transition: width 1s ease;
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+            padding-right: 10px;
+            font-weight: bold;
+            font-size: .9em;
+        }
+
+        .score-list {
+            margin-top: 15px;
+        }
+
+        .score-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 0;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin: 20px 0;
+        }
+
+        .stat-card {
+            background: rgba(255, 255, 255, 0.05);
+            padding: 20px;
+            border-radius: 10px;
+            text-align: center;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .stat-number {
+            font-size: 2.5em;
+            font-weight: bold;
+            color: #e94560;
+        }
+
+        .stat-label {
+            color: #a0a0a0;
+            margin-top: 5px;
+        }
+
+        .chart-container {
+            position: relative;
+            height: 300px;
+            margin: 20px 0;
+        }
+
+        .history-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 15px;
+        }
+
+        .history-table th {
+            background: rgba(233, 69, 96, 0.3);
+            padding: 12px;
+            text-align: left;
+            font-weight: 600;
+        }
+
+        .history-table td {
+            padding: 12px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .history-table tr:hover {
+            background: rgba(255, 255, 255, 0.05);
+        }
+
+        .tag {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: .8em;
+            font-weight: bold;
+        }
+
+        .tag-Pencurian {
+            background: #ff6b6b;
+            color: white;
+        }
+
+        .tag-Penganiayaan {
+            background: #feca57;
+            color: #1a1a2e;
+        }
+
+        .tag-Penipuan {
+            background: #48dbfb;
+            color: #1a1a2e;
+        }
+
+        .tag-Perusakan {
+            background: #ff9ff3;
+            color: #1a1a2e;
+        }
+
+        .tag-Narkoba {
+            background: #54a0ff;
+            color: white;
+        }
+
+        .tag-Penggelapan {
+            background: #5f27cd;
+            color: white;
+        }
+
+        .tag-Pengeroyokan {
+            background: #00d2d3;
+            color: #1a1a2e;
+        }
+
+        .tag-KDRT {
+            background: #ff6348;
+            color: white;
+        }
+
+        .tag-Tipiring {
+            background: #a29bfe;
+            color: #1a1a2e;
+        }
+
+        .full-width {
+            grid-column: 1 / -1;
+        }
+
+        .tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            border-bottom: 2px solid rgba(255, 255, 255, 0.1);
+            padding-bottom: 10px;
+            flex-wrap: wrap;
+        }
+
+        .tab {
+            padding: 10px 20px;
+            cursor: pointer;
+            border-radius: 8px 8px 0 0;
+            transition: all .3s;
+            font-weight: 600;
+        }
+
+        .tab.active {
+            background: #e94560;
+            color: white;
+        }
+
+        .tab:hover:not(.active) {
+            background: rgba(255, 255, 255, 0.1);
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+            animation: fadeIn .3s ease;
+        }
+
+        .guide-box {
+            background: rgba(0, 217, 255, 0.1);
+            border-left: 4px solid #00d9ff;
+            padding: 15px;
+            margin: 15px 0;
+            border-radius: 0 8px 8px 0;
+        }
+
+        .guide-box h4 {
+            color: #00d9ff;
+            margin-bottom: 10px;
+        }
+
+        .keyword-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 10px;
+        }
+
+        .keyword-tag {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 4px 12px;
+            border-radius: 15px;
+            font-size: .85em;
+        }
+
+        .method-badge {
+            display: inline-block;
+            padding: 3px 10px;
+            border-radius: 10px;
+            font-size: .75em;
+            margin-left: 8px;
+        }
+
+        .method-nb {
+            background: #00d9ff22;
+            border: 1px solid #00d9ff;
+            color: #00d9ff;
+        }
+
+        .method-rule {
+            background: #ffc10722;
+            border: 1px solid #ffc107;
+            color: #ffc107;
+        }
+
+        .spinner {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            border-top-color: #fff;
+            animation: spin .8s ease-in-out infinite;
+            vertical-align: middle;
+            margin-right: 8px;
+        }
+
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        footer {
+            text-align: center;
+            padding: 30px;
+            color: #666;
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+            margin-top: 30px;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <header>
+            <h1>🚔 Sistem Klasifikasi Kasus Kriminal</h1>
+            <p>Polsek Sungai Pinyuh, Kabupaten Mempawah, Kalimantan Barat</p>
+            <div style="margin-top:15px">
+                <span class="badge badge-primary">1,050 Kasus Terdata</span>
+                <span class="badge badge-success">9 Jenis Perkara</span>
+                <span class="badge badge-warning">Akurasi 90%</span>
+                <span class="badge badge-primary">Periode 2021-2024</span>
+            </div>
+        </header>
+
+        <div class="tabs">
+            <div class="tab active" onclick="showTab('klasifikasi',this)">🔍 Klasifikasi Kasus</div>
+            <div class="tab" onclick="showTab('statistik',this)">📊 Statistik</div>
+            <div class="tab" onclick="showTab('panduan',this)">📖 Panduan Input</div>
+            <div class="tab" onclick="showTab('riwayat',this)">📋 Riwayat</div>
+        </div>
+
+        <!-- ═══ TAB KLASIFIKASI ═══════════════════════════════════════════════════ -->
+        <div id="klasifikasi" class="tab-content active">
+            <div class="grid">
+                <div class="card">
+                    <h2>Input Kasus Baru</h2>
+                    <div class="form-group">
+                        <label for="noLp">Nomor LP</label>
+                        <input type="text" id="noLp"
+                            placeholder="Contoh: LP/B/01/I/2024/Kalbar/Res Mpw/Sek Sui Pinyuh" />
+                    </div>
+                    <div class="form-group">
+                        <label for="tkp">Tempat Kejadian Perkara (TKP)</label>
+                        <input type="text" id="tkp" placeholder="Contoh: Jl. Raya, Desa Sungai Pinyuh" />
+                    </div>
+                    <div class="form-group">
+                        <label for="pelapor">Pelapor</label>
+                        <input type="text" id="pelapor" placeholder="Nama pelapor" />
+                    </div>
+                    <div class="form-group">
+                        <label for="terlapor">Terlapor</label>
+                        <input type="text" id="terlapor" placeholder="Nama terlapor" />
+                    </div>
+                    <div class="form-group">
+                        <label for="mo">Modus Operandi (MO) *</label>
+                        <textarea id="mo" placeholder="Jelaskan cara pelaku melakukan tindak pidana..."
+                            required></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label for="barangBukti">Barang Bukti</label>
+                        <input type="text" id="barangBukti" placeholder="Contoh: Hasil Visum, 1 unit HP, dll" />
+                    </div>
+                    <div class="form-group">
+                        <label for="proses">Proses</label>
+                        <select id="proses">
+                            <option>Sidik</option>
+                            <option>Dalam Lidik</option>
+                            <option>Lidik</option>
+                            <option>SP3</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="ket">Keterangan</label>
+                        <select id="ket">
+                            <option>Tahap I</option>
+                            <option>P. 21 Tahap II</option>
+                            <option>Tipiring Sidang PN</option>
+                            <option>Lidik</option>
+                            <option>Dilimpahkan ke Polres</option>
+                            <option>Limpah ke JPU</option>
+                        </select>
+                    </div>
+                    <button id="btnKlasifikasi" class="btn btn-primary" onclick="classifyCase()">🔍 Klasifikasikan
+                        Kasus</button>
+                    <button class="btn btn-secondary" onclick="resetForm()" style="margin-left:10px">🔄 Reset</button>
+                </div>
+
+                <div class="card">
+                    <h2>Hasil Klasifikasi</h2>
+                    <div id="resultBox" class="result-box">
+                        <div id="predictionMain" class="prediction-main"></div>
+                        <div style="text-align:center;margin-bottom:20px">
+                            <span id="confidenceText" style="font-size:1.2em;color:#a0a0a0"></span>
+                            <span id="methodBadge" class="method-badge"></span>
+                        </div>
+                        <h3 style="color:#00d9ff;margin:20px 0 10px">📊 Confidence Score</h3>
+                        <div id="confidenceBars"></div>
+                        <h3 style="color:#00d9ff;margin:20px 0 10px">📝 Detail Skor</h3>
+                        <div id="scoreList" class="score-list"></div>
+                        <div id="recommendation"
+                            style="margin-top:20px;padding:15px;border-radius:8px;background:rgba(0,217,255,0.1)"></div>
+                    </div>
+                    <div id="emptyState" style="text-align:center;padding:40px;color:#666">
+                        <div style="font-size:4em;margin-bottom:20px">🔍</div>
+                        <p>Silakan isi form di sebelah kiri dan klik "Klasifikasikan Kasus" untuk melihat hasil
+                            prediksi.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ═══ TAB STATISTIK ════════════════════════════════════════════════════ -->
+        <div id="statistik" class="tab-content">
+            <div class="grid">
+                <div class="card full-width">
+                    <h2>📊 Distribusi Perkara (dari Database)</h2>
+                    <div class="chart-container"><canvas id="perkaraChart"></canvas></div>
+                </div>
+                <div class="card">
+                    <h2>📈 Statistik Umum</h2>
+                    <div class="stats-grid">
+                        <div class="stat-card">
+                            <div class="stat-number" id="statTotal">—</div>
+                            <div class="stat-label">Total Klasifikasi</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-number">9</div>
+                            <div class="stat-label">Jenis Perkara</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-number">90%</div>
+                            <div class="stat-label">Akurasi Model</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-number">1,050</div>
+                            <div class="stat-label">Data Training</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="card">
+                    <h2>🏆 Top Perkara</h2>
+                    <div class="chart-container"><canvas id="topPerkaraChart"></canvas></div>
+                </div>
+                <div class="card full-width">
+                    <h2>📅 Tren Kasus per Tahun (Data Historis)</h2>
+                    <div class="chart-container"><canvas id="trendChart"></canvas></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ═══ TAB PANDUAN ══════════════════════════════════════════════════════ -->
+        <div id="panduan" class="tab-content">
+            <div class="card full-width">
+                <h2>📖 Panduan Pengisian MO untuk Klasifikasi Optimal</h2>
+                <div class="guide-box">
+                    <h4>🔴 Pencurian</h4>
+                    <p>Gunakan kata kunci seperti: <em>mengambil, membawa lari, mencuri, merusak kunci motor, memanjat
+                            pagar, mencongkel jendela</em></p>
+                    <div class="keyword-list"><span class="keyword-tag">mengambil</span><span
+                            class="keyword-tag">membawa lari</span><span class="keyword-tag">merusak kunci</span><span
+                            class="keyword-tag">memanjat pagar</span><span class="keyword-tag">menguras</span></div>
+                </div>
+                <div class="guide-box">
+                    <h4>🟡 Penganiayaan</h4>
+                    <p>Gunakan kata kunci seperti: <em>memukul, menendang, menampar, melempar, mendorong, menganiaya,
+                            hasil visum, cekcok mulut</em></p>
+                    <div class="keyword-list"><span class="keyword-tag">memukul</span><span
+                            class="keyword-tag">menendang</span><span class="keyword-tag">menampar</span><span
+                            class="keyword-tag">hasil visum</span><span class="keyword-tag">cekcok mulut</span></div>
+                </div>
+                <div class="guide-box">
+                    <h4>🔵 Penipuan</h4>
+                    <p>Gunakan kata kunci seperti: <em>menghilang, fiktif, menjanjikan, black market, bisnis fiktif,
+                            modus penggandaan uang</em></p>
+                    <div class="keyword-list"><span class="keyword-tag">menghilang</span><span
+                            class="keyword-tag">fiktif</span><span class="keyword-tag">menjanjikan</span><span
+                            class="keyword-tag">black market</span><span class="keyword-tag">modus</span></div>
+                </div>
+                <div class="guide-box">
+                    <h4>🟣 Perusakan</h4>
+                    <p>Gunakan kata kunci seperti: <em>merusak, melempar pecah, memecahkan, menggores bodi, menyiramkan,
+                            menebang pohon</em></p>
+                    <div class="keyword-list"><span class="keyword-tag">merusak</span><span
+                            class="keyword-tag">melempar</span><span class="keyword-tag">memecahkan</span><span
+                            class="keyword-tag">menggores</span><span class="keyword-tag">menebang</span></div>
+                </div>
+                <div class="guide-box">
+                    <h4>🟢 Narkoba</h4>
+                    <p>Gunakan kata kunci seperti: <em>sabu, ganja, ekstasi, narkotika, hisap, bong, transaksi narkoba,
+                            timbangan digital</em></p>
+                    <div class="keyword-list"><span class="keyword-tag">sabu</span><span
+                            class="keyword-tag">ganja</span><span class="keyword-tag">ekstasi</span><span
+                            class="keyword-tag">narkotika</span><span class="keyword-tag">digeledah</span></div>
+                </div>
+                <div class="guide-box">
+                    <h4>🟤 Penggelapan</h4>
+                    <p>Gunakan kata kunci seperti: <em>menyewa tidak mengembalikan, tidak disetorkan, menggadaikan tanpa
+                            izin, audit keuangan</em></p>
+                    <div class="keyword-list"><span class="keyword-tag">menyewa</span><span class="keyword-tag">tidak
+                            mengembalikan</span><span class="keyword-tag">menggadaikan</span><span
+                            class="keyword-tag">audit keuangan</span></div>
+                </div>
+                <div class="guide-box">
+                    <h4>⚪ Pengeroyokan</h4>
+                    <p>Gunakan kata kunci seperti: <em>dikeroyok, bersama-sama, dihajar, kawan-kawan, sekelompok,
+                            massa</em></p>
+                    <div class="keyword-list"><span class="keyword-tag">dikeroyok</span><span
+                            class="keyword-tag">bersama-sama</span><span class="keyword-tag">kawan-kawan</span><span
+                            class="keyword-tag">sekelompok</span><span class="keyword-tag">massa</span></div>
+                </div>
+                <div class="guide-box">
+                    <h4>🟠 KDRT</h4>
+                    <p>Gunakan kata kunci seperti: <em>istri, suami, kekerasan rumah tangga, menjambak rambut, buku
+                            nikah, di depan anak</em></p>
+                    <div class="keyword-list"><span class="keyword-tag">istri</span><span
+                            class="keyword-tag">suami</span><span class="keyword-tag">kekerasan</span><span
+                            class="keyword-tag">buku nikah</span><span class="keyword-tag">rumah tangga</span></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ═══ TAB RIWAYAT ══════════════════════════════════════════════════════ -->
+        <div id="riwayat" class="tab-content">
+            <div class="card full-width">
+                <h2>📋 Riwayat Klasifikasi</h2>
+                <div style="margin-bottom:15px">
+                    <button class="btn btn-secondary" onclick="clearHistory()">🗑️ Hapus Semua</button>
+                    <button class="btn btn-primary" onclick="exportCSV()" style="margin-left:10px">📥 Export
+                        CSV</button>
+                </div>
+                <div style="overflow-x:auto">
+                    <table class="history-table">
+                        <thead>
+                            <tr>
+                                <th>Waktu</th>
+                                <th>No LP</th>
+                                <th>MO (Ringkasan)</th>
+                                <th>Prediksi</th>
+                                <th>Confidence</th>
+                                <th>Aksi</th>
+                            </tr>
+                        </thead>
+                        <tbody id="historyBody">
+                            <tr>
+                                <td colspan="6" style="text-align:center;color:#666">Belum ada riwayat</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+                <div id="historyPagination" style="margin-top:15px;text-align:center"></div>
+            </div>
+        </div>
+
+        <footer>
+            <p>© 2024 Polsek Sungai Pinyuh | Sistem Klasifikasi Kasus Kriminal v2.0</p>
+            <p>Data Training: 1,050 kasus (2021-2024) | Model: Multinomial Naive Bayes + TF-IDF</p>
+        </footer>
+    </div>
+
+    <script>
+        const COLORS = {
+            Pencurian: '#ff6b6b', Penganiayaan: '#feca57', Penipuan: '#48dbfb',
+            Perusakan: '#ff9ff3', Narkoba: '#54a0ff', Penggelapan: '#5f27cd',
+            Pengeroyokan: '#00d2d3', KDRT: '#ff6348', Tipiring: '#a29bfe'
+        };
+        const RECS = {
+            Pencurian: 'Lakukan penyelidikan TKP, periksa CCTV, lacak barang bukti. Perhatikan modus spesifik.',
+            Penganiayaan: 'Segera lakukan visum et repertum, kumpulkan saksi, dokumentasikan luka korban.',
+            Penipuan: 'Kumpulkan bukti transfer/screenshot, lacak rekening pelaku, periksa janji yang diberikan.',
+            Perusakan: 'Dokumentasikan kerusakan dengan foto, estimasi nilai kerugian, periksa motif.',
+            Narkoba: 'Amankan barang bukti dengan prosedur rantai, lakukan pemeriksaan lab, periksa jaringan.',
+            Penggelapan: 'Kumpulkan dokumen perjanjian/sewa, periksa audit keuangan, lacak keberadaan barang/uang.',
+            Pengeroyokan: 'Identifikasi seluruh pelaku, lakukan visum, kumpulkan saksi mata, periksa motif.',
+            KDRT: 'Pastikan keselamatan korban, lakukan visum, koordinasi dengan P2TP2A, terapkan UU PKDRT.',
+            Tipiring: 'Proses sesuai prosedur tipiring, koordinasi dengan kejaksaan untuk P-21.',
+        };
+
+        // ── Tab navigation ──────────────────────────────────────────────────────────
+        function showTab(name, el) {
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+            if (el) el.classList.add('active');
+            document.getElementById(name).classList.add('active');
+            if (name === 'statistik') loadStats();
+            if (name === 'riwayat') loadHistory(1);
+        }
+
+        // ── Classify ────────────────────────────────────────────────────────────────
+        async function classifyCase() {
+            const mo = document.getElementById('mo').value.trim();
+            if (!mo) { alert('Kolom MO tidak boleh kosong!'); return; }
+
+            const btn = document.getElementById('btnKlasifikasi');
+            btn.disabled = true;
+            btn.innerHTML = '<span class="spinner"></span> Memproses...';
+
+            try {
+                const res = await fetch('/api/classify', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        mo,
+                        barang_bukti: document.getElementById('barangBukti').value,
+                        no_lp: document.getElementById('noLp').value,
+                        tkp: document.getElementById('tkp').value,
+                        pelapor: document.getElementById('pelapor').value,
+                        terlapor: document.getElementById('terlapor').value,
+                        proses: document.getElementById('proses').value,
+                        ket: document.getElementById('ket').value,
+                    }),
+                });
+                const data = await res.json();
+                if (!res.ok) { alert(data.error || 'Terjadi kesalahan'); return; }
+                renderResult(data);
+            } catch (e) {
+                alert('Gagal terhubung ke server: ' + e.message);
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = '🔍 Klasifikasikan Kasus';
+            }
+        }
+
+        function renderResult(data) {
+            document.getElementById('emptyState').style.display = 'none';
+            const box = document.getElementById('resultBox');
+            box.style.display = 'block';
+
+            const color = COLORS[data.prediction] || '#888';
+            box.style.borderColor = color;
+
+            document.getElementById('predictionMain').innerHTML =
+                `<div style="background:${color}22;border:3px solid ${color};color:${color};border-radius:10px;padding:20px">${data.prediction}</div>`;
+
+            document.getElementById('confidenceText').textContent = `Confidence: ${data.confidence}%`;
+
+            const methodEl = document.getElementById('methodBadge');
+            if (data.method === 'naive-bayes') {
+                methodEl.className = 'method-badge method-nb';
+                methodEl.textContent = '🤖 Naive Bayes';
+            } else {
+                methodEl.className = 'method-badge method-rule';
+                methodEl.textContent = '📏 Rule-Based';
+            }
+
+            // Confidence bars
+            let bars = '';
+            Object.entries(data.scores).slice(0, 5).forEach(([p, s]) => {
+                const c = COLORS[p] || '#888';
+                bars += `<div style="margin:8px 0">
+      <div style="display:flex;justify-content:space-between;margin-bottom:4px"><span>${p}</span><span>${s}%</span></div>
+      <div class="confidence-bar"><div class="confidence-fill" style="width:${s}%;background:${c}">${s > 15 ? s + '%' : ''}</div></div>
+    </div>`;
+            });
+            document.getElementById('confidenceBars').innerHTML = bars;
+
+            // Score list
+            let scoreHtml = '';
+            Object.entries(data.scores).forEach(([p, s]) => {
+                scoreHtml += `<div class="score-item"><span style="color:${COLORS[p] || '#888'}">${p}</span><span style="font-family:monospace">${s}%</span></div>`;
+            });
+            document.getElementById('scoreList').innerHTML = scoreHtml;
+
+            document.getElementById('recommendation').innerHTML =
+                `<strong style="color:#00d9ff">💡 Rekomendasi Penanganan:</strong>
+     <p style="margin-top:10px;line-height:1.6">${RECS[data.prediction] || 'Lakukan penyelidikan sesuai SOP.'}</p>`;
+        }
+
+        function resetForm() {
+            ['noLp', 'tkp', 'pelapor', 'terlapor', 'mo', 'barangBukti'].forEach(id => document.getElementById(id).value = '');
+            document.getElementById('resultBox').style.display = 'none';
+            document.getElementById('emptyState').style.display = 'block';
+        }
+
+        // ── Stats & Charts ───────────────────────────────────────────────────────────
+        let chartsBuilt = {};
+
+        async function loadStats() {
+            const res = await fetch('/api/stats');
+            const data = await res.json();
+
+            document.getElementById('statTotal').textContent = data.total;
+
+            const labels = data.distribution.map(d => d.perkara);
+            const values = data.distribution.map(d => d.count);
+            const colors = labels.map(l => COLORS[l] || '#888');
+
+            if (!chartsBuilt.pie) {
+                chartsBuilt.pie = new Chart(document.getElementById('perkaraChart'), {
+                    type: 'doughnut',
+                    data: { labels, datasets: [{ data: values, backgroundColor: colors, borderWidth: 2, borderColor: '#1a1a2e' }] },
+                    options: {
+                        responsive: true, maintainAspectRatio: false,
+                        plugins: {
+                            legend: { position: 'right', labels: { color: '#fff' } },
+                            tooltip: { callbacks: { label: ctx => { const t = ctx.dataset.data.reduce((a, b) => a + b, 0); return `${ctx.label}: ${ctx.raw} (${((ctx.raw / t) * 100).toFixed(1)}%)`; } } }
+                        }
+                    }
+                });
+                chartsBuilt.bar = new Chart(document.getElementById('topPerkaraChart'), {
+                    type: 'bar',
+                    data: { labels: labels.slice(0, 5), datasets: [{ label: 'Jumlah', data: values.slice(0, 5), backgroundColor: colors.slice(0, 5), borderRadius: 8 }] },
+                    options: {
+                        responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } },
+                        scales: { y: { beginAtZero: true, ticks: { color: '#fff' }, grid: { color: 'rgba(255,255,255,0.1)' } }, x: { ticks: { color: '#fff' }, grid: { display: false } } }
+                    }
+                });
+                chartsBuilt.trend = new Chart(document.getElementById('trendChart'), {
+                    type: 'line',
+                    data: {
+                        labels: ['2021', '2022', '2023', '2024'],
+                        datasets: [
+                            { label: 'Pencurian', data: [120, 90, 55, 15], borderColor: '#ff6b6b', tension: .4, fill: false },
+                            { label: 'Penganiayaan', data: [80, 65, 45, 15], borderColor: '#feca57', tension: .4, fill: false },
+                            { label: 'Penipuan', data: [50, 45, 40, 14], borderColor: '#48dbfb', tension: .4, fill: false },
+                            { label: 'Perusakan', data: [40, 35, 35, 15], borderColor: '#ff9ff3', tension: .4, fill: false },
+                            { label: 'Narkoba', data: [25, 30, 25, 6], borderColor: '#54a0ff', tension: .4, fill: false },
+                        ]
+                    },
+                    options: {
+                        responsive: true, maintainAspectRatio: false,
+                        plugins: { legend: { labels: { color: '#fff' } } },
+                        scales: { y: { ticks: { color: '#fff' }, grid: { color: 'rgba(255,255,255,0.1)' } }, x: { ticks: { color: '#fff' }, grid: { color: 'rgba(255,255,255,0.1)' } } }
+                    }
+                });
+            } else {
+                // Update existing charts
+                chartsBuilt.pie.data.labels = labels;
+                chartsBuilt.pie.data.datasets[0].data = values;
+                chartsBuilt.pie.data.datasets[0].backgroundColor = colors;
+                chartsBuilt.pie.update();
+                chartsBuilt.bar.data.labels = labels.slice(0, 5);
+                chartsBuilt.bar.data.datasets[0].data = values.slice(0, 5);
+                chartsBuilt.bar.update();
+            }
+        }
+
+        // ── History ──────────────────────────────────────────────────────────────────
+        async function loadHistory(page) {
+            const res = await fetch(`/api/history?page=${page}`);
+            const data = await res.json();
+            const tbody = document.getElementById('historyBody');
+
+            if (data.data.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:#666">Belum ada riwayat klasifikasi</td></tr>';
+                return;
+            }
+
+            tbody.innerHTML = data.data.map(r => `
+    <tr>
+      <td>${r.waktu}</td>
+      <td>${r.no_lp || '-'}</td>
+      <td>${r.mo ? r.mo.substring(0, 80) + (r.mo.length > 80 ? '...' : '') : '-'}</td>
+      <td><span class="tag tag-${r.prediksi}">${r.prediksi}</span></td>
+      <td>${r.confidence}%</td>
+      <td>
+        <button class="btn btn-secondary" style="padding:5px 10px;font-size:.8em" onclick="viewRecord(${r.id})">👁️</button>
+        <button class="btn" style="padding:5px 10px;font-size:.8em;background:#e9456022;border:1px solid #e94560;color:#e94560" onclick="deleteRecord(${r.id})">🗑️</button>
+      </td>
+    </tr>`).join('');
+
+            // Pagination
+            const pag = document.getElementById('historyPagination');
+            pag.innerHTML = '';
+            for (let i = 1; i <= data.pages; i++) {
+                const btn = document.createElement('button');
+                btn.className = 'btn ' + (i === data.current ? 'btn-primary' : 'btn-secondary');
+                btn.style.cssText = 'padding:5px 12px;margin:3px;font-size:.8em';
+                btn.textContent = i;
+                btn.onclick = () => loadHistory(i);
+                pag.appendChild(btn);
+            }
+        }
+
+        async function deleteRecord(id) {
+            if (!confirm('Hapus record ini?')) return;
+            await fetch(`/api/history/${id}`, { method: 'DELETE' });
+            loadHistory(1);
+        }
+
+        async function clearHistory() {
+            if (!confirm('Hapus semua riwayat? Tindakan ini tidak dapat dibatalkan.')) return;
+            await fetch('/api/history/clear', { method: 'DELETE' });
+            loadHistory(1);
+        }
+
+        async function viewRecord(id) {
+            const res = await fetch('/api/history');
+            const data = await res.json();
+            const rec = data.data.find(r => r.id === id);
+            if (!rec) return;
+            document.getElementById('mo').value = rec.mo || '';
+            document.getElementById('noLp').value = rec.no_lp || '';
+            document.getElementById('tkp').value = rec.tkp || '';
+            document.getElementById('pelapor').value = rec.pelapor || '';
+            renderResult(rec);
+            showTab('klasifikasi', document.querySelectorAll('.tab')[0]);
+        }
+
+        function exportCSV() { window.location.href = '/api/export'; }
+    </script>
+</body>
+
+</html>

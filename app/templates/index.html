@@ -1,0 +1,1140 @@
+<!doctype html>
+<html lang="id">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Sistem Klasifikasi Kasus Kriminal - Polsek Sungai Pinyuh</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+      /* Copy semua CSS dari file asli Anda di sini */
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      body {
+        font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+        background: linear-gradient(
+          135deg,
+          #1a1a2e 0%,
+          #16213e 50%,
+          #0f3460 100%
+        );
+        min-height: 100vh;
+        color: #eee;
+      }
+
+      .container {
+        max-width: 1400px;
+        margin: 0 auto;
+        padding: 20px;
+      }
+
+      header {
+        text-align: center;
+        padding: 30px 0;
+        border-bottom: 2px solid #e94560;
+        margin-bottom: 30px;
+      }
+
+      header h1 {
+        font-size: 2.5em;
+        color: #e94560;
+        text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+        margin-bottom: 10px;
+      }
+
+      header p {
+        color: #a0a0a0;
+        font-size: 1.1em;
+      }
+
+      .badge {
+        display: inline-block;
+        padding: 5px 15px;
+        border-radius: 20px;
+        font-size: 0.85em;
+        font-weight: bold;
+        margin: 5px;
+      }
+
+      .badge-primary {
+        background: #e94560;
+        color: white;
+      }
+      .badge-success {
+        background: #00d9ff;
+        color: #1a1a2e;
+      }
+      .badge-warning {
+        background: #ffc107;
+        color: #1a1a2e;
+      }
+
+      .grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 25px;
+        margin-bottom: 30px;
+      }
+
+      @media (max-width: 900px) {
+        .grid {
+          grid-template-columns: 1fr;
+        }
+      }
+
+      .card {
+        background: rgba(255, 255, 255, 0.05);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 15px;
+        padding: 25px;
+        backdrop-filter: blur(10px);
+        transition:
+          transform 0.3s,
+          box-shadow 0.3s;
+      }
+
+      .card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 10px 30px rgba(233, 69, 96, 0.2);
+      }
+
+      .card h2 {
+        color: #e94560;
+        margin-bottom: 20px;
+        font-size: 1.5em;
+        border-left: 4px solid #e94560;
+        padding-left: 15px;
+      }
+
+      .form-group {
+        margin-bottom: 20px;
+      }
+
+      label {
+        display: block;
+        margin-bottom: 8px;
+        color: #00d9ff;
+        font-weight: 600;
+      }
+
+      input,
+      textarea,
+      select {
+        width: 100%;
+        padding: 12px 15px;
+        border: 2px solid rgba(255, 255, 255, 0.1);
+        border-radius: 8px;
+        background: rgba(0, 0, 0, 0.3);
+        color: #fff;
+        font-size: 1em;
+        transition: border-color 0.3s;
+      }
+
+      input:focus,
+      textarea:focus,
+      select:focus {
+        outline: none;
+        border-color: #e94560;
+      }
+
+      textarea {
+        min-height: 120px;
+        resize: vertical;
+      }
+
+      .btn {
+        padding: 12px 30px;
+        border: none;
+        border-radius: 8px;
+        font-size: 1em;
+        font-weight: bold;
+        cursor: pointer;
+        transition: all 0.3s;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+      }
+
+      .btn-primary {
+        background: linear-gradient(45deg, #e94560, #ff6b6b);
+        color: white;
+      }
+
+      .btn-primary:hover {
+        transform: scale(1.05);
+        box-shadow: 0 5px 20px rgba(233, 69, 96, 0.4);
+      }
+
+      .btn-secondary {
+        background: rgba(255, 255, 255, 0.1);
+        color: #00d9ff;
+        border: 2px solid #00d9ff;
+      }
+
+      .btn-secondary:hover {
+        background: #00d9ff;
+        color: #1a1a2e;
+      }
+
+      .result-box {
+        display: none;
+        margin-top: 25px;
+        padding: 25px;
+        border-radius: 12px;
+        background: rgba(0, 0, 0, 0.3);
+        border: 2px solid;
+        animation: fadeIn 0.5s ease;
+      }
+
+      @keyframes fadeIn {
+        from {
+          opacity: 0;
+          transform: translateY(20px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+
+      .prediction-main {
+        font-size: 2em;
+        font-weight: bold;
+        text-align: center;
+        margin: 15px 0;
+        padding: 20px;
+        border-radius: 10px;
+      }
+
+      .confidence-bar {
+        width: 100%;
+        height: 30px;
+        background: rgba(255, 255, 255, 0.1);
+        border-radius: 15px;
+        overflow: hidden;
+        margin: 10px 0;
+        position: relative;
+      }
+
+      .confidence-fill {
+        height: 100%;
+        border-radius: 15px;
+        transition: width 1s ease;
+        display: flex;
+        align-items: center;
+        justify-content: flex-end;
+        padding-right: 10px;
+        font-weight: bold;
+        font-size: 0.9em;
+      }
+
+      .score-list {
+        margin-top: 15px;
+      }
+
+      .score-item {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 8px 0;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+      }
+
+      .score-label {
+        font-weight: 600;
+      }
+
+      .score-value {
+        font-family: monospace;
+        font-size: 1.1em;
+      }
+
+      .stats-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 15px;
+        margin: 20px 0;
+      }
+
+      .stat-card {
+        background: rgba(255, 255, 255, 0.05);
+        padding: 20px;
+        border-radius: 10px;
+        text-align: center;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+      }
+
+      .stat-number {
+        font-size: 2.5em;
+        font-weight: bold;
+        color: #e94560;
+      }
+
+      .stat-label {
+        color: #a0a0a0;
+        margin-top: 5px;
+      }
+
+      .chart-container {
+        position: relative;
+        height: 300px;
+        margin: 20px 0;
+      }
+
+      .history-table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 15px;
+      }
+
+      .history-table th {
+        background: rgba(233, 69, 96, 0.3);
+        padding: 12px;
+        text-align: left;
+        font-weight: 600;
+      }
+
+      .history-table td {
+        padding: 12px;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+      }
+
+      .history-table tr:hover {
+        background: rgba(255, 255, 255, 0.05);
+      }
+
+      .tag {
+        display: inline-block;
+        padding: 4px 12px;
+        border-radius: 12px;
+        font-size: 0.8em;
+        font-weight: bold;
+      }
+
+      .tag-pencurian {
+        background: #ff6b6b;
+        color: white;
+      }
+      .tag-penganiayaan {
+        background: #feca57;
+        color: #1a1a2e;
+      }
+      .tag-penipuan {
+        background: #48dbfb;
+        color: #1a1a2e;
+      }
+      .tag-perusakan {
+        background: #ff9ff3;
+        color: #1a1a2e;
+      }
+      .tag-narkoba {
+        background: #54a0ff;
+        color: white;
+      }
+      .tag-penggelapan {
+        background: #5f27cd;
+        color: white;
+      }
+      .tag-pengeroyokan {
+        background: #00d2d3;
+        color: #1a1a2e;
+      }
+      .tag-kdrt {
+        background: #ff6348;
+        color: white;
+      }
+      .tag-tipiring {
+        background: #a29bfe;
+        color: #1a1a2e;
+      }
+
+      .full-width {
+        grid-column: 1 / -1;
+      }
+
+      .tabs {
+        display: flex;
+        gap: 10px;
+        margin-bottom: 20px;
+        border-bottom: 2px solid rgba(255, 255, 255, 0.1);
+        padding-bottom: 10px;
+      }
+
+      .tab {
+        padding: 10px 20px;
+        cursor: pointer;
+        border-radius: 8px 8px 0 0;
+        transition: all 0.3s;
+        font-weight: 600;
+      }
+
+      .tab.active {
+        background: #e94560;
+        color: white;
+      }
+
+      .tab:hover:not(.active) {
+        background: rgba(255, 255, 255, 0.1);
+      }
+
+      .tab-content {
+        display: none;
+      }
+
+      .tab-content.active {
+        display: block;
+        animation: fadeIn 0.3s ease;
+      }
+
+      .guide-box {
+        background: rgba(0, 217, 255, 0.1);
+        border-left: 4px solid #00d9ff;
+        padding: 15px;
+        margin: 15px 0;
+        border-radius: 0 8px 8px 0;
+      }
+
+      .guide-box h4 {
+        color: #00d9ff;
+        margin-bottom: 10px;
+      }
+
+      .keyword-list {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin-top: 10px;
+      }
+
+      .keyword-tag {
+        background: rgba(255, 255, 255, 0.1);
+        padding: 4px 12px;
+        border-radius: 15px;
+        font-size: 0.85em;
+      }
+
+      footer {
+        text-align: center;
+        padding: 30px;
+        color: #666;
+        border-top: 1px solid rgba(255, 255, 255, 0.1);
+        margin-top: 30px;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <header>
+        <h1>Sistem Klasifikasi Kasus Kriminal</h1>
+        <p>Polsek Sungai Pinyuh, Kabupaten Mempawah, Kalimantan Barat</p>
+        <div style="margin-top: 15px">
+          <span class="badge badge-primary" id="totalCases"
+            >1,050 Kasus Terdata</span
+          >
+          <span class="badge badge-success">9 Jenis Perkara</span>
+          <span class="badge badge-warning">Akurasi 83%</span>
+          <span class="badge badge-primary">Periode 2021-2024</span>
+        </div>
+      </header>
+
+      <div class="tabs">
+        <div class="tab active" onclick="showTab('klasifikasi')">
+          🔍 Klasifikasi Kasus
+        </div>
+        <div class="tab" onclick="showTab('statistik')">📊 Statistik</div>
+        <div class="tab" onclick="showTab('panduan')">📖 Panduan Input</div>
+        <div class="tab" onclick="showTab('riwayat')">📋 Riwayat</div>
+      </div>
+
+      <!-- Tab Klasifikasi -->
+      <div id="klasifikasi" class="tab-content active">
+        <div class="grid">
+          <div class="card">
+            <h2>Input Kasus Baru</h2>
+            <form id="caseForm" onsubmit="return classifyCase(event);">
+              <div class="form-group">
+                <label for="noLp">Nomor LP</label>
+                <input
+                  type="text"
+                  id="noLp"
+                  placeholder="Contoh: LP/B/01/I/2024/Kalbar/Res Mpw/Sek Sui Pinyuh"
+                  required
+                />
+              </div>
+
+              <div class="form-group">
+                <label for="tkp">Tempat Kejadian Perkara (TKP)</label>
+                <input
+                  type="text"
+                  id="tkp"
+                  placeholder="Contoh: Jl. Raya, Desa Sungai Pinyuh"
+                  required
+                />
+              </div>
+
+              <div class="form-group">
+                <label for="pelapor">Pelapor</label>
+                <input
+                  type="text"
+                  id="pelapor"
+                  placeholder="Nama pelapor"
+                  required
+                />
+              </div>
+
+              <div class="form-group">
+                <label for="terlapor">Terlapor</label>
+                <input
+                  type="text"
+                  id="terlapor"
+                  placeholder="Nama terlapor"
+                  required
+                />
+              </div>
+
+              <div class="form-group">
+                <label for="mo">Modus Operandi (MO) *</label>
+                <textarea
+                  id="mo"
+                  placeholder="Jelaskan cara pelaku melakukan tindak pidana... (contoh: Pelaku memukul korban menggunakan tangan kosong karena tersinggung)"
+                  required
+                ></textarea>
+              </div>
+
+              <div class="form-group">
+                <label for="barangBukti">Barang Bukti</label>
+                <input
+                  type="text"
+                  id="barangBukti"
+                  placeholder="Contoh: Hasil Visum et Repertum, 1 unit HP, dll"
+                />
+              </div>
+
+              <div class="form-group">
+                <label for="proses">Proses</label>
+                <select id="proses">
+                  <option value="Sidik">Sidik</option>
+                  <option value="Dalam Lidik">Dalam Lidik</option>
+                  <option value="Lidik">Lidik</option>
+                  <option value="SP3">SP3</option>
+                </select>
+              </div>
+
+              <div class="form-group">
+                <label for="ket">Keterangan</label>
+                <select id="ket">
+                  <option value="Tahap I">Tahap I</option>
+                  <option value="P. 21 Tahap II">P. 21 Tahap II</option>
+                  <option value="Tipiring Sidang PN">Tipiring Sidang PN</option>
+                  <option value="Lidik">Lidik</option>
+                  <option value="Dilimpahkan ke Polres">
+                    Dilimpahkan ke Polres
+                  </option>
+                  <option value="Limpah ke JPU">Limpah ke JPU</option>
+                </select>
+              </div>
+
+              <button type="submit" class="btn btn-primary">
+                🔍 Klasifikasikan Kasus
+              </button>
+              <button
+                type="button"
+                class="btn btn-secondary"
+                onclick="resetForm()"
+              >
+                🔄 Reset
+              </button>
+            </form>
+          </div>
+
+          <div class="card">
+            <h2>Hasil Klasifikasi</h2>
+            <div id="resultBox" class="result-box">
+              <div id="predictionMain" class="prediction-main"></div>
+              <div style="text-align: center; margin-bottom: 20px">
+                <span
+                  id="confidenceText"
+                  style="font-size: 1.2em; color: #a0a0a0"
+                ></span>
+              </div>
+
+              <h3 style="color: #00d9ff; margin: 20px 0 10px">
+                📊 Confidence Score
+              </h3>
+              <div id="confidenceBars"></div>
+
+              <h3 style="color: #00d9ff; margin: 20px 0 10px">
+                📝 Detail Skor
+              </h3>
+              <div id="scoreList" class="score-list"></div>
+
+              <div
+                id="recommendation"
+                style="
+                  margin-top: 20px;
+                  padding: 15px;
+                  border-radius: 8px;
+                  background: rgba(0, 217, 255, 0.1);
+                "
+              ></div>
+            </div>
+
+            <div
+              id="emptyState"
+              style="text-align: center; padding: 40px; color: #666"
+            >
+              <div style="font-size: 4em; margin-bottom: 20px">🔍</div>
+              <p>
+                Silakan isi form di sebelah kiri dan klik "Klasifikasikan Kasus"
+                untuk melihat hasil prediksi jenis perkara.
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tab Statistik -->
+      <div id="statistik" class="tab-content">
+        <div class="grid">
+          <div class="card full-width">
+            <h2>📊 Distribusi Jenis Perkara</h2>
+            <div class="chart-container">
+              <canvas id="perkaraChart"></canvas>
+            </div>
+          </div>
+
+          <div class="card">
+            <h2>📈 Statistik Umum</h2>
+            <div class="stats-grid" id="statsGrid">
+              <!-- Stats akan diisi oleh JavaScript -->
+            </div>
+          </div>
+
+          <div class="card">
+            <h2>🏆 Top 5 Perkara</h2>
+            <div class="chart-container">
+              <canvas id="topPerkaraChart"></canvas>
+            </div>
+          </div>
+
+          <div class="card full-width">
+            <h2>📅 Tren Kasus per Tahun</h2>
+            <div class="chart-container">
+              <canvas id="trendChart"></canvas>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tab Panduan -->
+      <div id="panduan" class="tab-content">
+        <div class="card full-width">
+          <h2>📖 Panduan Pengisian MO untuk Klasifikasi Optimal</h2>
+          <!-- Sama seperti di HTML asli -->
+          <div class="guide-box">
+            <h4>🔴 Pencurian</h4>
+            <p>
+              Gunakan kata kunci seperti:
+              <em
+                >mengambil, membawa lari, mencuri, merusak kunci motor, memanjat
+                pagar, mencongkel jendela, masuk rumah mengambil, menguras
+                laci</em
+              >
+            </p>
+            <div class="keyword-list">
+              <span class="keyword-tag">mengambil</span>
+              <span class="keyword-tag">membawa lari</span>
+              <span class="keyword-tag">merusak kunci</span>
+              <span class="keyword-tag">memanjat pagar</span>
+              <span class="keyword-tag">menguras</span>
+            </div>
+          </div>
+          <!-- Tambahkan guide-box lainnya di sini -->
+        </div>
+      </div>
+
+      <!-- Tab Riwayat -->
+      <div id="riwayat" class="tab-content">
+        <div class="card full-width">
+          <h2>📋 Riwayat Klasifikasi</h2>
+          <div style="margin-bottom: 15px">
+            <button class="btn btn-secondary" onclick="clearHistory()">
+              🗑️ Hapus Riwayat
+            </button>
+            <button class="btn btn-primary" onclick="exportHistory()">
+              📥 Export CSV
+            </button>
+          </div>
+          <div style="overflow-x: auto">
+            <table class="history-table" id="historyTable">
+              <thead>
+                <tr>
+                  <th>Waktu</th>
+                  <th>No LP</th>
+                  <th>MO (Ringkasan)</th>
+                  <th>Prediksi</th>
+                  <th>Confidence</th>
+                  <th>Aksi</th>
+                </tr>
+              </thead>
+              <tbody id="historyBody">
+                <tr>
+                  <td colspan="6" style="text-align: center; color: #666">
+                    Loading...
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <footer>
+        <p>© 2024 Polsek</p>
+      </footer>
+    </div>
+    <script>
+      // ========== GLOBAL VARIABLES ==========
+      let history = [];
+      let chartsInitialized = false;
+
+      // ========== TAB NAVIGATION ==========
+      function showTab(tabName, event) {
+        // Update tab aktif
+        document.querySelectorAll(".tab").forEach((tab) => {
+          tab.classList.remove("active");
+        });
+
+        if (event && event.target) {
+          event.target.classList.add("active");
+        } else {
+          // Jika dipanggil tanpa event, cari tab berdasarkan nama
+          const tabs = document.querySelectorAll(".tab");
+          const tabMap = {
+            klasifikasi: 0,
+            statistik: 1,
+            panduan: 2,
+            riwayat: 3,
+          };
+          if (tabs[tabMap[tabName]]) {
+            tabs[tabMap[tabName]].classList.add("active");
+          }
+        }
+
+        // Sembunyikan semua konten
+        document.querySelectorAll(".tab-content").forEach((content) => {
+          content.classList.remove("active");
+        });
+
+        // Tampilkan konten yang dipilih
+        const activeContent = document.getElementById(tabName);
+        if (activeContent) {
+          activeContent.classList.add("active");
+        }
+
+        // Load data jika perlu
+        if (tabName === "statistik") {
+          setTimeout(() => initCharts(), 100);
+        } else if (tabName === "riwayat") {
+          loadHistory();
+        }
+      }
+
+      // ========== API CALLS ==========
+      async function classifyCase(event) {
+        if (event) event.preventDefault();
+
+        // Tampilkan loading
+        const classifyBtn = document.querySelector(
+          '#caseForm button[type="submit"]',
+        );
+        const originalText = classifyBtn.innerHTML;
+        classifyBtn.innerHTML = "⏳ Memproses...";
+        classifyBtn.disabled = true;
+
+        try {
+          const formData = {
+            no_lp: document.getElementById("noLp").value,
+            tkp: document.getElementById("tkp").value,
+            pelapor: document.getElementById("pelapor").value,
+            terlapor: document.getElementById("terlapor").value,
+            mo: document.getElementById("mo").value,
+            barang_bukti: document.getElementById("barangBukti").value,
+            proses: document.getElementById("proses").value,
+            ket: document.getElementById("ket").value,
+          };
+
+          const response = await fetch("/api/classify", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(formData),
+          });
+
+          const data = await response.json();
+
+          if (data.success) {
+            displayResult(data.result);
+            // Refresh history jika perlu
+            loadHistory();
+          } else {
+            alert("Error: " + data.error);
+          }
+        } catch (error) {
+          console.error("Error:", error);
+          alert("Terjadi kesalahan saat mengklasifikasikan kasus");
+        } finally {
+          classifyBtn.innerHTML = originalText;
+          classifyBtn.disabled = false;
+        }
+
+        return false;
+      }
+
+      function displayResult(result) {
+        document.getElementById("emptyState").style.display = "none";
+        const resultBox = document.getElementById("resultBox");
+        resultBox.style.display = "block";
+
+        // Prediction main
+        document.getElementById("predictionMain").innerHTML = `
+      <div style="background: ${result.color}22; border: 3px solid ${result.color}; color: ${result.color}; padding: 20px; border-radius: 10px;">
+        ${result.prediction}
+      </div>
+    `;
+
+        document.getElementById("confidenceText").textContent =
+          `Confidence: ${result.confidence}%`;
+
+        // Confidence bars
+        let barsHtml = "";
+        const topScores = Object.entries(result.scores).slice(0, 5);
+        for (const [perkara, score] of topScores) {
+          const color = getPerkaraColor(perkara);
+          barsHtml += `
+        <div style="margin: 8px 0;">
+          <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+            <span>${perkara}</span>
+            <span>${score}%</span>
+          </div>
+          <div class="confidence-bar">
+            <div class="confidence-fill" style="width: ${score}%; background: ${color};">
+              ${score > 15 ? score + "%" : ""}
+            </div>
+          </div>
+        </div>
+      `;
+        }
+        document.getElementById("confidenceBars").innerHTML = barsHtml;
+
+        // Score list
+        let scoreHtml = "";
+        for (const [perkara, score] of Object.entries(result.scores)) {
+          const color = getPerkaraColor(perkara);
+          scoreHtml += `
+        <div class="score-item">
+          <span class="score-label" style="color: ${color}">${perkara}</span>
+          <span class="score-value">${score}%</span>
+        </div>
+      `;
+        }
+        document.getElementById("scoreList").innerHTML = scoreHtml;
+
+        // Recommendation
+        document.getElementById("recommendation").innerHTML = `
+      <strong style="color: #00d9ff;">💡 Rekomendasi Penanganan:</strong><br>
+      <p style="margin-top: 10px; line-height: 1.6;">${result.recommendation}</p>
+    `;
+      }
+
+      function getPerkaraColor(perkara) {
+        const colors = {
+          Pencurian: "#ff6b6b",
+          Penganiayaan: "#feca57",
+          Penipuan: "#48dbfb",
+          Perusakan: "#ff9ff3",
+          Narkoba: "#54a0ff",
+          Penggelapan: "#5f27cd",
+          Pengeroyokan: "#00d2d3",
+          KDRT: "#ff6348",
+          Tipiring: "#a29bfe",
+        };
+        return colors[perkara] || "#666";
+      }
+
+      async function loadHistory() {
+        try {
+          const response = await fetch("/api/history");
+          const data = await response.json();
+
+          if (data.success) {
+            history = data.history;
+            renderHistory();
+          }
+        } catch (error) {
+          console.error("Error loading history:", error);
+        }
+      }
+
+      function renderHistory() {
+        const tbody = document.getElementById("historyBody");
+        if (!history || history.length === 0) {
+          tbody.innerHTML =
+            '<tr><td colspan="6" style="text-align: center; color: #666;">Belum ada riwayat klasifikasi</td></tr>';
+          return;
+        }
+
+        tbody.innerHTML = history
+          .map((item, idx) => {
+            const tagClass =
+              "tag-" + item.prediction.toLowerCase().replace(/[^a-z]/g, "");
+            return `
+        <tr>
+          <td>${item.time}</td>
+          <td>${item.no_lp || "-"}</td>
+          <td>${item.mo || "-"}</td>
+          <td><span class="tag ${tagClass}">${item.prediction}</span></td>
+          <td>${item.confidence}%</td>
+          <td><button class="btn btn-secondary" style="padding: 5px 10px; font-size: 0.8em;" onclick="viewHistory(${item.id})">👁️ Lihat</button></td>
+        </tr>
+      `;
+          })
+          .join("");
+      }
+
+      async function viewHistory(id) {
+        try {
+          const response = await fetch(`/api/history/${id}`);
+          const data = await response.json();
+
+          if (data.success && data.item) {
+            const item = data.item;
+            document.getElementById("mo").value = item.mo_full || "";
+            document.getElementById("noLp").value = item.no_lp || "";
+            document.getElementById("tkp").value = item.tkp || "";
+            document.getElementById("pelapor").value = item.pelapor || "";
+            document.getElementById("terlapor").value = item.terlapor || "";
+            document.getElementById("barangBukti").value =
+              item.barang_bukti || "";
+            document.getElementById("proses").value = item.proses || "Sidik";
+            document.getElementById("ket").value = item.ket || "Tahap I";
+
+            // Pindah ke tab klasifikasi
+            showTab("klasifikasi", {
+              target: document.querySelectorAll(".tab")[0],
+            });
+
+            // Simulasi klasifikasi ulang
+            setTimeout(() => {
+              const fakeEvent = { preventDefault: () => {} };
+              classifyCase(fakeEvent);
+            }, 100);
+          }
+        } catch (error) {
+          console.error("Error viewing history:", error);
+        }
+      }
+
+      async function clearHistory() {
+        if (confirm("Yakin ingin menghapus semua riwayat?")) {
+          try {
+            await fetch("/api/history/clear", { method: "DELETE" });
+            loadHistory();
+            alert("Riwayat berhasil dihapus");
+          } catch (error) {
+            console.error("Error clearing history:", error);
+          }
+        }
+      }
+
+      function exportHistory() {
+        if (!history || history.length === 0) {
+          alert("Tidak ada data untuk diexport");
+          return;
+        }
+
+        let csv = "Waktu,No LP,MO,Prediksi,Confidence\n";
+        for (const item of history) {
+          csv += `"${item.time}","${item.no_lp || ""}","${(item.mo_full || "").replace(/"/g, '""')}","${item.prediction}","${item.confidence}%"\n`;
+        }
+
+        const blob = new Blob([csv], { type: "text/csv" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = "riwayat_klasifikasi_kriminal.csv";
+        a.click();
+        URL.revokeObjectURL(url);
+      }
+
+      function resetForm() {
+        document.getElementById("caseForm").reset();
+        document.getElementById("resultBox").style.display = "none";
+        document.getElementById("emptyState").style.display = "block";
+      }
+
+      // ========== CHARTS ==========
+      async function initCharts() {
+        if (chartsInitialized) return;
+
+        try {
+          const response = await fetch("/api/statistics");
+          const data = await response.json();
+
+          if (!data.success) return;
+
+          const stats = data.statistics;
+
+          // Update stat cards
+          const statsHtml = `
+        <div class="stat-card"><div class="stat-number">${stats.total_cases.toLocaleString()}</div><div class="stat-label">Total Kasus</div></div>
+        <div class="stat-card"><div class="stat-number">${Object.keys(stats.case_types).length}</div><div class="stat-label">Jenis Perkara</div></div>
+        <div class="stat-card"><div class="stat-number">83%</div><div class="stat-label">Akurasi Model</div></div>
+        <div class="stat-card"><div class="stat-number">4</div><div class="stat-label">Tahun Data (2021-2024)</div></div>
+      `;
+          document.getElementById("statsGrid").innerHTML = statsHtml;
+
+          const labels = Object.keys(stats.case_types);
+          const data_values = Object.values(stats.case_types);
+          const colors = labels.map((l) => getPerkaraColor(l));
+
+          // Chart 1: Doughnut
+          new Chart(document.getElementById("perkaraChart"), {
+            type: "doughnut",
+            data: {
+              labels: labels,
+              datasets: [
+                {
+                  data: data_values,
+                  backgroundColor: colors,
+                  borderWidth: 2,
+                  borderColor: "#1a1a2e",
+                },
+              ],
+            },
+            options: {
+              responsive: true,
+              maintainAspectRatio: false,
+              plugins: {
+                legend: { position: "right", labels: { color: "#fff" } },
+                tooltip: {
+                  callbacks: {
+                    label: function (context) {
+                      const total = context.dataset.data.reduce(
+                        (a, b) => a + b,
+                        0,
+                      );
+                      const pct = ((context.raw / total) * 100).toFixed(1);
+                      return `${context.label}: ${context.raw} kasus (${pct}%)`;
+                    },
+                  },
+                },
+              },
+            },
+          });
+
+          // Chart 2: Top 5 Bar
+          const top5Labels = labels.slice(0, 5);
+          const top5Data = data_values.slice(0, 5);
+          const top5Colors = colors.slice(0, 5);
+
+          new Chart(document.getElementById("topPerkaraChart"), {
+            type: "bar",
+            data: {
+              labels: top5Labels,
+              datasets: [
+                {
+                  label: "Jumlah Kasus",
+                  data: top5Data,
+                  backgroundColor: top5Colors,
+                  borderRadius: 8,
+                },
+              ],
+            },
+            options: {
+              responsive: true,
+              maintainAspectRatio: false,
+              plugins: { legend: { display: false } },
+              scales: {
+                y: {
+                  beginAtZero: true,
+                  ticks: { color: "#fff" },
+                  grid: { color: "rgba(255,255,255,0.1)" },
+                },
+                x: { ticks: { color: "#fff" }, grid: { display: false } },
+              },
+            },
+          });
+
+          // Chart 3: Trend Line
+          const years = Object.keys(stats.trend_data);
+          const datasets = [];
+          const topPerkara = [
+            "Pencurian",
+            "Penganiayaan",
+            "Penipuan",
+            "Perusakan",
+            "Narkoba",
+          ];
+
+          for (const perkara of topPerkara) {
+            const dataByYear = years.map(
+              (year) => stats.trend_data[year][perkara] || 0,
+            );
+            datasets.push({
+              label: perkara,
+              data: dataByYear,
+              borderColor: getPerkaraColor(perkara),
+              tension: 0.4,
+            });
+          }
+
+          new Chart(document.getElementById("trendChart"), {
+            type: "line",
+            data: { labels: years, datasets: datasets },
+            options: {
+              responsive: true,
+              maintainAspectRatio: false,
+              plugins: { legend: { labels: { color: "#fff" } } },
+              scales: {
+                y: {
+                  ticks: { color: "#fff" },
+                  grid: { color: "rgba(255,255,255,0.1)" },
+                },
+                x: {
+                  ticks: { color: "#fff" },
+                  grid: { color: "rgba(255,255,255,0.1)" },
+                },
+              },
+            },
+          });
+
+          chartsInitialized = true;
+        } catch (error) {
+          console.error("Error initializing charts:", error);
+        }
+      }
+
+      // ========== INITIALIZATION ==========
+      document.addEventListener("DOMContentLoaded", () => {
+        // Setup tab click handlers
+        const tabs = document.querySelectorAll(".tab");
+        const tabNames = ["klasifikasi", "statistik", "panduan", "riwayat"];
+
+        tabs.forEach((tab, index) => {
+          tab.onclick = (e) => showTab(tabNames[index], e);
+        });
+
+        // Load initial data
+        loadHistory();
+
+        // Setup form submission
+        const form = document.getElementById("caseForm");
+        if (form) {
+          form.onsubmit = classifyCase;
+        }
+      });
+    </script>
+  </body>
+</html>
