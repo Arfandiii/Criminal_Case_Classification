@@ -1,0 +1,450 @@
+<!doctype html>
+<html lang="id">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Sistem Klasifikasi Kasus Kriminal - Polsek Sungai Pinyuh</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link
+      rel="stylesheet"
+      href="{{ url_for('static', filename='css/style.css') }}"
+    />
+  </head>
+  <body>
+    <div class="container">
+      <!-- ══ HEADER ══════════════════════════════════════════════════════════════ -->
+      <header>
+        <h1>Sistem Klasifikasi Kasus Kriminal</h1>
+        <p>Polsek Sungai Pinyuh — Kabupaten Mempawah, Kalimantan Barat</p>
+        <div class="badge-row">
+          <span class="badge badge-red" id="badgeKasus">
+            📁 0 Kasus Terdata
+          </span>
+
+          <span class="badge badge-cyan" id="badgePerkara">
+            🗂️ 0 Jenis Perkara
+          </span>
+
+          <span class="badge badge-gold"> 🎯 Akurasi 98% </span>
+
+          <span class="badge badge-red" id="badgeTahun"> 📅 - </span>
+        </div>
+      </header>
+
+      <!-- ══ TABS ════════════════════════════════════════════════════════════════ -->
+      <div class="tabs" id="tabBar">
+        <div class="tab active" data-tab="klasifikasi">
+          🔍 Klasifikasi Kasus
+        </div>
+        <div class="tab" data-tab="statistik">📊 Statistik</div>
+        <div class="tab" data-tab="panduan">📖 Panduan Input</div>
+        <div class="tab" data-tab="riwayat">📋 Riwayat</div>
+      </div>
+
+      <!-- ══ TAB: KLASIFIKASI ════════════════════════════════════════════════════ -->
+      <div id="tab-klasifikasi" class="tab-content active">
+        <div class="grid">
+          <!-- Form Input -->
+          <div class="card">
+            <h2>✏️ Input Kasus Baru</h2>
+
+            <div class="form-row">
+              <div class="form-group">
+                <label for="noLp"
+                  >Nomor LP <span class="required-star">*</span></label
+                >
+                <input
+                  type="text"
+                  id="noLp"
+                  placeholder="LP/B/01/I/2024/Kalbar/…"
+                />
+              </div>
+              <div class="form-group">
+                <label for="tglLp"
+                  >Tanggal Laporan <span class="required-star">*</span></label
+                >
+                <input type="date" id="tglLp" />
+              </div>
+              <div class="form-group">
+                <label for="tkp"
+                  >Tempat Kejadian (TKP)
+                  <span class="required-star">*</span></label
+                >
+                <input
+                  type="text"
+                  id="tkp"
+                  placeholder="Jl. Raya, Desa Sungai Pinyuh"
+                />
+              </div>
+              <div class="form-group">
+                <label for="desa"
+                  >Desa/Kelurahan <span class="required-star">*</span></label
+                >
+                <input type="text" id="desa" />
+              </div>
+            </div>
+
+            <div class="form-row">
+              <div class="form-group">
+                <label for="pelapor"
+                  >Pelapor <span class="required-star">*</span></label
+                >
+                <input type="text" id="pelapor" placeholder="Nama pelapor" />
+              </div>
+              <div class="form-group">
+                <label for="terlapor"
+                  >Terlapor <span class="required-star">*</span></label
+                >
+                <input type="text" id="terlapor" placeholder="Nama terlapor" />
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label for="mo"
+                >Modus Operandi (MO) <span class="required-star">*</span></label
+              >
+              <textarea
+                id="mo"
+                placeholder="Jelaskan cara pelaku melakukan tindak pidana secara detail…"
+              ></textarea>
+            </div>
+
+            <div class="form-group">
+              <label for="barangBukti"
+                >Barang Bukti <span class="required-star">*</span></label
+              >
+              <textarea
+                id="barangBukti"
+                rows="3"
+                placeholder="Masukkan barang bukti..."
+              ></textarea>
+            </div>
+
+            <div class="form-row">
+              <div class="form-group">
+                <label for="proses"
+                  >Proses <span class="required-star">*</span></label
+                >
+                <select id="proses">
+                  <option value="">Pilih Proses</option>
+                  <option>Dalam Lidik</option>
+                  <option>Lidik</option>
+                  <option>Sidik</option>
+                  <option>SP3</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label for="ket"
+                  >Keterangan <span class="required-star">*</span></label
+                >
+                <select id="ket">
+                  <option value="">Pilih Keterangan</option>
+                  <option>Dalam Lidik</option>
+                  <option>Dilimpahkan ke Polres</option>
+                  <option>Limpah ke JPU</option>
+                  <option>P.21 Tahap II</option>
+                  <option>Restorative Justice</option>
+                  <option>Sidik</option>
+                  <option>Tahap I</option>
+                  <option>Tahap II</option>
+                  <option>Tipiring Sidang PN</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="btn-group">
+              <button
+                id="btnKlasifikasi"
+                class="btn btn-primary"
+                onclick="classifyCase()"
+              >
+                🔍 Klasifikasikan
+              </button>
+              <button class="btn btn-secondary" onclick="resetForm()">
+                🔄 Reset
+              </button>
+            </div>
+          </div>
+
+          <!-- Hasil -->
+          <div class="card">
+            <h2>📋 Hasil Klasifikasi</h2>
+
+            <div id="emptyState" class="empty-state">
+              <div class="icon">🔍</div>
+              <p>
+                Isi form di sebelah kiri lalu klik
+                <strong>Klasifikasikan</strong> untuk melihat prediksi jenis
+                perkara.
+              </p>
+            </div>
+
+            <div id="resultBox" class="result-box">
+              <div id="predictionLabel" class="prediction-label"></div>
+              <div class="result-meta">
+                <span id="confidenceText" class="confidence-text"></span>
+                <span id="methodBadge" class="method-badge"></span>
+              </div>
+
+              <div class="section-title">📊 Confidence Score</div>
+              <div id="confidenceBars"></div>
+
+              <div class="section-title">📝 Skor Semua Kelas</div>
+              <div id="scoreGrid" class="score-grid"></div>
+
+              <div id="recBox" class="rec-box"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ══ TAB: STATISTIK ══════════════════════════════════════════════════════ -->
+      <div id="tab-statistik" class="tab-content">
+        <div class="grid">
+          <div class="card full-width">
+            <h2>📊 Distribusi Jenis Perkara</h2>
+            <div class="chart-container">
+              <canvas id="perkaraChart"></canvas>
+            </div>
+          </div>
+          <div class="card">
+            <h2>📈 Statistik Umum</h2>
+            <div class="stats-grid" id="statsGrid">
+              <div class="stat-card">
+                <div class="stat-num" id="totalKasus">0</div>
+                <div class="stat-lbl">Total Kasus (2021–2024)</div>
+              </div>
+              <div class="stat-card">
+                <div class="stat-num" id="totalJenisPerkara">0</div>
+                <div class="stat-lbl">Jenis Perkara</div>
+              </div>
+              <div class="stat-card">
+                <div class="stat-num">98%</div>
+                <div class="stat-lbl">Akurasi Model NB</div>
+              </div>
+              <div class="stat-card">
+                <div class="stat-num" id="jumlahTahun">0</div>
+                <div class="stat-lbl">Tahun Data</div>
+              </div>
+            </div>
+          </div>
+          <div class="card">
+            <h2>🏆 Top 5 Perkara</h2>
+            <div class="chart-container">
+              <canvas id="topPerkaraChart"></canvas>
+            </div>
+          </div>
+          <div class="card full-width">
+            <h2>📅 Tren Kasus per Tahun</h2>
+            <div class="chart-container"><canvas id="trendChart"></canvas></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ══ TAB: PANDUAN ════════════════════════════════════════════════════════ -->
+      <div id="tab-panduan" class="tab-content">
+        <div class="card full-width">
+          <h2>📖 Panduan Pengisian MO</h2>
+          <p style="color: #aaa; margin-bottom: 4px; font-size: 0.9em">
+            Kolom <strong>Modus Operandi (MO)</strong> adalah penentu utama
+            klasifikasi. Gunakan kata kunci khas setiap perkara agar akurasi
+            lebih tinggi.
+          </p>
+          <div class="guide-grid">
+            <div class="guide-box">
+              <h4>🔴 Pencurian</h4>
+              <p>
+                Kata kunci:
+                <em
+                  >mengambil, membawa lari, mencuri, merusak kunci, memanjat
+                  pagar, mencongkel, menguras laci</em
+                >
+              </p>
+              <div class="kw-list">
+                <span class="kw-tag">mengambil</span
+                ><span class="kw-tag">membawa lari</span>
+                <span class="kw-tag">merusak kunci</span
+                ><span class="kw-tag">memanjat</span
+                ><span class="kw-tag">menguras</span>
+              </div>
+            </div>
+            <div class="guide-box">
+              <h4>🟡 Penganiayaan</h4>
+              <p>
+                Kata kunci:
+                <em
+                  >memukul, menendang, menampar, melempar, mendorong, hasil
+                  visum, luka memar, cekcok mulut</em
+                >
+              </p>
+              <div class="kw-list">
+                <span class="kw-tag">memukul</span
+                ><span class="kw-tag">menendang</span>
+                <span class="kw-tag">menampar</span
+                ><span class="kw-tag">hasil visum</span
+                ><span class="kw-tag">cekcok</span>
+              </div>
+            </div>
+            <div class="guide-box">
+              <h4>🔵 Penipuan</h4>
+              <p>
+                Kata kunci:
+                <em
+                  >fiktif, menjanjikan, menghilang, black market, bisnis fiktif,
+                  modus penggandaan, arisan bodong</em
+                >
+              </p>
+              <div class="kw-list">
+                <span class="kw-tag">fiktif</span
+                ><span class="kw-tag">menjanjikan</span>
+                <span class="kw-tag">black market</span
+                ><span class="kw-tag">menipu</span
+                ><span class="kw-tag">arisan bodong</span>
+              </div>
+            </div>
+            <div class="guide-box">
+              <h4>🟣 Perusakan</h4>
+              <p>
+                Kata kunci:
+                <em
+                  >merusak, melempar, memecahkan, menggores, menyiramkan,
+                  menebang pohon, memotong kabel</em
+                >
+              </p>
+              <div class="kw-list">
+                <span class="kw-tag">merusak</span
+                ><span class="kw-tag">melempar</span>
+                <span class="kw-tag">memecahkan</span
+                ><span class="kw-tag">menggores</span
+                ><span class="kw-tag">menebang</span>
+              </div>
+            </div>
+            <div class="guide-box">
+              <h4>🟢 Narkoba</h4>
+              <p>
+                Kata kunci:
+                <em
+                  >sabu, ganja, ekstasi, narkotika, hisap, bong, timbangan
+                  digital, klip plastik, digeledah</em
+                >
+              </p>
+              <div class="kw-list">
+                <span class="kw-tag">sabu</span
+                ><span class="kw-tag">ganja</span>
+                <span class="kw-tag">ekstasi</span
+                ><span class="kw-tag">narkotika</span
+                ><span class="kw-tag">digeledah</span>
+              </div>
+            </div>
+            <div class="guide-box">
+              <h4>🟤 Penggelapan</h4>
+              <p>
+                Kata kunci:
+                <em
+                  >menyewa tidak mengembalikan, tidak disetorkan, menggadaikan
+                  tanpa izin, audit keuangan</em
+                >
+              </p>
+              <div class="kw-list">
+                <span class="kw-tag">menyewa</span
+                ><span class="kw-tag">tidak mengembalikan</span>
+                <span class="kw-tag">menggadaikan</span
+                ><span class="kw-tag">audit keuangan</span>
+              </div>
+            </div>
+            <div class="guide-box">
+              <h4>⚪ Pengeroyokan</h4>
+              <p>
+                Kata kunci:
+                <em
+                  >dikeroyok, bersama-sama, dihajar, kawan-kawan,
+                  teman-temannya, sekelompok, massa</em
+                >
+              </p>
+              <div class="kw-list">
+                <span class="kw-tag">dikeroyok</span
+                ><span class="kw-tag">bersama-sama</span>
+                <span class="kw-tag">kawan-kawan</span
+                ><span class="kw-tag">sekelompok</span
+                ><span class="kw-tag">massa</span>
+              </div>
+            </div>
+            <div class="guide-box">
+              <h4>🟠 KDRT</h4>
+              <p>
+                Kata kunci:
+                <em
+                  >istri, suami, kekerasan rumah tangga, menjambak rambut, buku
+                  nikah, di depan anak</em
+                >
+              </p>
+              <div class="kw-list">
+                <span class="kw-tag">istri</span
+                ><span class="kw-tag">suami</span>
+                <span class="kw-tag">kekerasan</span
+                ><span class="kw-tag">buku nikah</span
+                ><span class="kw-tag">rumah tangga</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ══ TAB: RIWAYAT ════════════════════════════════════════════════════════ -->
+      <div id="tab-riwayat" class="tab-content">
+        <div class="card full-width">
+          <h2>📋 Riwayat Klasifikasi</h2>
+          <div class="btn-group" style="margin-bottom: 18px">
+            <button class="btn btn-danger" onclick="clearHistory()">
+              🗑️ Hapus Semua
+            </button>
+            <button class="btn btn-secondary" onclick="exportCSV()">
+              📥 Export CSV
+            </button>
+          </div>
+          <div class="table-wrapper">
+            <table class="history-table">
+              <thead>
+                <tr>
+                  <th>Waktu</th>
+                  <th>No LP</th>
+                  <th>MO (Ringkasan)</th>
+                  <th>Prediksi</th>
+                  <th>Confidence</th>
+                  <th>Aksi</th>
+                </tr>
+              </thead>
+              <tbody id="historyBody">
+                <tr>
+                  <td
+                    colspan="6"
+                    style="text-align: center; color: #555; padding: 30px"
+                  >
+                    Memuat riwayat…
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <div id="pagination" class="pagination"></div>
+        </div>
+      </div>
+
+      <footer>
+        <p>
+          © 2024 Polsek Sungai Pinyuh &nbsp;|&nbsp; Sistem Klasifikasi Kasus
+          Kriminal v2.0
+        </p>
+        <p>
+          Data Training: 1,050 kasus (2021–2024) &nbsp;|&nbsp; Model:
+          Multinomial Naive Bayes + TF-IDF
+        </p>
+      </footer>
+    </div>
+
+    <!-- ══ TOAST ═══════════════════════════════════════════════════════════════ -->
+    <div id="toast"></div>
+
+    <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+  </body>
+</html>
