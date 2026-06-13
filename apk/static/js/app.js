@@ -12,6 +12,7 @@ const COLORS = {
   KDRT: "#ff6348",
   Tipiring: "#5f27cd",
 };
+
 const RECS = {
   Pencurian:
     "Lakukan penyelidikan TKP, periksa CCTV, lacak barang bukti. Perhatikan modus spesifik (motor/rumah/toko).",
@@ -31,6 +32,31 @@ const RECS = {
   Tipiring:
     "Proses sesuai prosedur tipiring, koordinasi dengan kejaksaan untuk P-21.",
 };
+
+// ═══════════════════════════════════════════════════════════════════════════
+// HEADER STATS
+// ═══════════════════════════════════════════════════════════════════════════
+async function loadHeaderStats() {
+  try {
+    const resp = await fetch("/api/statistics");
+    const data = await resp.json();
+
+    if (!data.success) return;
+
+    const stats = data.statistics;
+
+    document.getElementById("badgeKasus").textContent =
+      `${stats.total_cases} Kasus Terdata`;
+
+    document.getElementById("badgePerkara").textContent =
+      `${Object.keys(stats.case_types).length} Jenis Perkara`;
+
+    document.getElementById("badgeTahun").textContent =
+      `${stats.start_year}–${stats.end_year}`;
+  } catch (err) {
+    console.error("loadHeaderStats error:", err);
+  }
+}
 
 // ═══════════════════════════════════════════════════════════════════════════
 // TAB NAVIGATION
@@ -57,150 +83,275 @@ document.getElementById("tabBar").addEventListener("click", (e) => {
 });
 
 // ═══════════════════════════════════════════════════════════════════════════
-// CLASSIFY
+// FORM KLASIFIKASI
 // ═══════════════════════════════════════════════════════════════════════════
-async function classifyCase() {
-  const mo = document.getElementById("mo").value.trim();
-  if (!mo) {
-    toast("Kolom MO wajib diisi!", "err");
-    return;
-  }
 
-  const btn = document.getElementById("btnKlasifikasi");
-  btn.disabled = true;
-  btn.innerHTML = '<span class="spinner"></span> Memproses…';
+const moInput = document.getElementById("mo");
 
+// Counter karakter MO
+moInput.addEventListener("input", () => {
+  document.getElementById("charCount").textContent =
+    `${moInput.value.length} / 3000`;
+});
+
+// ═══════════════════════════════════════════════════════════════════════════
+// INISIALISASI FORM
+// ═══════════════════════════════════════════════════════════════════════════
+
+async function initForm() {
   try {
-    const resp = await fetch("/api/classify", {
+    const resp = await fetch("/api/generate-lp");
+    const data = await resp.json();
+
+    if (data.success) {
+      document.getElementById("noLp").value = data.no_lp;
+    }
+
+    // Set tanggal hari ini
+    document.getElementById("tglLp").value = new Date()
+      .toISOString()
+      .split("T")[0];
+  } catch (err) {
+    console.error("Gagal generate nomor LP", err);
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// VALIDASI FORM
+// ═══════════════════════════════════════════════════════════════════════════
+function validateForm() {
+  const fields = {
+    "Nomor LP": document.getElementById("noLp").value.trim(),
+    "Tanggal Laporan": document.getElementById("tglLp").value,
+    "Tempat Kejadian": document.getElementById("tkp").value.trim(),
+    Desa: document.getElementById("desa").value,
+    Pelapor: document.getElementById("pelapor").value.trim(),
+    Terlapor: document.getElementById("terlapor").value.trim(),
+    "Modus Operandi": document.getElementById("mo").value.trim(),
+    Proses: document.getElementById("proses").value,
+    Keterangan: document.getElementById("ket").value,
+  };
+
+  const empty = Object.entries(fields)
+    .filter(([_, val]) => !val)
+    .map(([key, _]) => key);
+
+  if (empty.length > 0) {
+    toast(`Field wajib belum diisi: ${empty.join(", ")}`, "err");
+    return false;
+  }
+  return true;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// PREDICT API
+// ═══════════════════════════════════════════════════════════════════════════
+async function predictCase() {
+  try {
+    const mo = document.getElementById("mo").value.trim();
+
+    const resp = await fetch("/api/predict", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        mo,
-        barang_bukti: document.getElementById("barangBukti").value,
-        no_lp: document.getElementById("noLp").value,
-        tkp: document.getElementById("tkp").value,
-        pelapor: document.getElementById("pelapor").value,
-        terlapor: document.getElementById("terlapor").value,
-        proses: document.getElementById("proses").value,
-        ket: document.getElementById("ket").value,
-      }),
+      body: JSON.stringify({ mo }),
     });
 
     const data = await resp.json();
-    if (!resp.ok) {
-      toast(data.error || "Terjadi kesalahan", "err");
+    return data;
+  } catch (err) {
+    console.error("Predict error:", err);
+    return { success: false, error: "Gagal terhubung ke server" };
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// SIMPAN DATABASE
+// ═══════════════════════════════════════════════════════════════════════════
+async function saveCase(result) {
+  const payload = {
+    no_lp: document.getElementById("noLp").value.trim(),
+    tgl_laporan: document.getElementById("tglLp").value,
+    tkp: document.getElementById("tkp").value.trim(),
+    desa: document.getElementById("desa").value,
+    pelapor: document.getElementById("pelapor").value.trim(),
+    terlapor: document.getElementById("terlapor").value.trim(),
+    barang_bukti: document.getElementById("barangBukti").value.trim(),
+    mo: document.getElementById("mo").value.trim(),
+    proses: document.getElementById("proses").value,
+    ket: document.getElementById("ket").value,
+  };
+
+  const resp = await fetch("/api/save-case", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+
+  return await resp.json();
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// KLASIFIKASI UTAMA
+// ═══════════════════════════════════════════════════════════════════════════
+async function classifyCase() {
+  if (!validateForm()) return;
+
+  const btn = document.getElementById("btnKlasifikasi");
+
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span> Memproses...';
+
+  try {
+    const result = await predictCase();
+
+    if (!result || !result.success) {
+      toast(result?.error || "Gagal melakukan prediksi", "err");
       return;
     }
 
-    // Flask kita mengembalikan {prediction, confidence, scores, method}
-    const result = data.success ? data.result : data;
     renderResult(result);
-    toast("Klasifikasi berhasil: " + result.prediction, "ok");
+
+    const saveResp = await saveCase(result);
+    console.log("SAVE RESPONSE:", saveResp);
+
+    if (saveResp.success) {
+      toast("Data berhasil disimpan", "ok");
+      loadHistory(1);
+    } else {
+      toast("Gagal menyimpan data: " + (saveResp.error || ""), "err");
+    }
   } catch (err) {
-    toast("Gagal terhubung ke server", "err");
     console.error(err);
+    toast("Gagal terhubung ke server", "err");
   } finally {
     btn.disabled = false;
-    btn.innerHTML = "🔍 Klasifikasikan";
+    btn.innerHTML = "🔍 Proses & Simpan Kasus";
   }
 }
 
-function renderResult(r) {
+// ═══════════════════════════════════════════════════════════════════════════
+// TAMPILKAN HASIL
+// ═══════════════════════════════════════════════════════════════════════════
+function renderResult(result) {
   document.getElementById("emptyState").style.display = "none";
+
   const box = document.getElementById("resultBox");
   box.style.display = "block";
 
-  const color = COLORS[r.prediction] || "#888";
+  const color = COLORS[result.prediction] || "#888";
   box.style.borderColor = color;
 
-  // Label utama
-  document.getElementById("predictionLabel").innerHTML =
-    `<div style="background:${color}22;border:2px solid ${color};color:${color};border-radius:10px;padding:16px 20px">${r.prediction}</div>`;
+  // Label Prediksi
+  document.getElementById("predictionLabel").innerHTML = `
+    <div style="
+      background:${color}22;
+      border:2px solid ${color};
+      color:${color};
+      border-radius:10px;
+      padding:16px 20px;
+      font-size:1.3em;
+      font-weight:bold;
+      text-align:center;
+    ">
+      ${result.prediction}
+    </div>
+  `;
 
+  // Confidence
   document.getElementById("confidenceText").textContent =
-    `Confidence: ${r.confidence}%`;
+    `Confidence: ${result.confidence}%`;
 
-  const mb = document.getElementById("methodBadge");
-  mb.textContent =
-    r.method === "naive-bayes" ? "🤖 Naive Bayes" : "📏 Rule-Based";
-  mb.className =
+  // Method Badge
+  const badge = document.getElementById("methodBadge");
+  badge.textContent =
+    result.method === "naive-bayes" ? "🤖 Naive Bayes" : "📏 Rule Based";
+  badge.className =
     "method-badge " +
-    (r.method === "naive-bayes" ? "method-nb" : "method-rule");
+    (result.method === "naive-bayes" ? "method-nb" : "method-rule");
 
-  // Confidence bars (top 5)
-  const scores = r.scores || {};
+  // Confidence Bars (top 5)
+  const scores = result.scores || {};
+  const sortedScores = Object.entries(scores)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 5);
+
   let bars = "";
-  Object.entries(scores)
-    .slice(0, 5)
-    .forEach(([p, s]) => {
-      const c = COLORS[p] || "#888";
-      bars += `
-        <div class="bar-label"><span>${p}</span><span>${s}%</span></div>
-        <div class="conf-track">
-            <div class="conf-fill" style="width:${s}%;background:${c}">${s > 12 ? s + "%" : ""}</div>
-        </div>`;
-    });
+  sortedScores.forEach(([perkara, score]) => {
+    const barColor = COLORS[perkara] || "#888";
+    bars += `
+      <div class="bar-label">
+        <span>${perkara}</span>
+        <span>${score}%</span>
+      </div>
+      <div class="conf-track">
+        <div
+          class="conf-fill"
+          style="width:${score}%; background:${barColor}"
+        >
+          ${score > 12 ? score + "%" : ""}
+        </div>
+      </div>
+    `;
+  });
+
   document.getElementById("confidenceBars").innerHTML = bars;
 
-  // Score grid (semua kelas)
+  // Semua kelas
   let grid = "";
-  Object.entries(scores).forEach(([p, s]) => {
-    grid += `<div class="score-item">
-        <span style="color:${COLORS[p] || "#888"}">${p}</span>
-        <span class="score-val">${s}%</span>
-        </div>`;
-  });
+  Object.entries(scores)
+    .sort((a, b) => b[1] - a[1])
+    .forEach(([perkara, score]) => {
+      grid += `
+        <div class="score-item">
+          <span style="color:${COLORS[perkara] || "#888"}">${perkara}</span>
+          <span class="score-val">${score}%</span>
+        </div>
+      `;
+    });
+
   document.getElementById("scoreGrid").innerHTML = grid;
 
   // Rekomendasi
-  document.getElementById("recBox").innerHTML =
-    `<strong>💡 Rekomendasi Penanganan</strong>${RECS[r.prediction] || "Lakukan penyelidikan sesuai SOP."}`;
+  document.getElementById("recBox").innerHTML = `
+    <strong>💡 Rekomendasi Penanganan</strong><br>
+    ${RECS[result.prediction] || "Lakukan penyelidikan sesuai SOP."}
+  `;
 }
 
+// ═══════════════════════════════════════════════════════════════════════════
+// RESET FORM
+// ═══════════════════════════════════════════════════════════════════════════
 function resetForm() {
-  ["noLp", "tkp", "pelapor", "terlapor", "mo", "barangBukti"].forEach((id) => {
+  ["tkp", "pelapor", "terlapor", "mo", "barangBukti"].forEach((id) => {
     document.getElementById(id).value = "";
   });
+
+  document.getElementById("desa").selectedIndex = 0;
   document.getElementById("proses").selectedIndex = 0;
   document.getElementById("ket").selectedIndex = 0;
+
+  document.getElementById("charCount").textContent = "0 / 3000";
+
   document.getElementById("resultBox").style.display = "none";
   document.getElementById("emptyState").style.display = "block";
-}
 
-async function loadHeaderStats() {
-  try {
-    const resp = await fetch("/api/statistics");
-    const data = await resp.json();
-
-    if (!data.success) return;
-
-    const stats = data.statistics;
-
-    document.getElementById("badgeKasus").textContent =
-      `📁 ${stats.total_cases} Kasus Terdata`;
-
-    document.getElementById("badgePerkara").textContent =
-      `🗂️ ${Object.keys(stats.case_types).length} Jenis Perkara`;
-
-    document.getElementById("badgeTahun").textContent =
-      `📅 ${stats.start_year}–${stats.end_year}`;
-  } catch (err) {
-    console.error(err);
-  }
+  initForm();
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
 // STATISTIK
 // ═══════════════════════════════════════════════════════════════════════════
-async function loadStats() {
-  if (chartsBuilt) return;
+let chartInstances = {};
+
+async function loadStats(force = false) {
+  if (chartsBuilt && !force) return;
 
   try {
     const resp = await fetch("/api/statistics");
     const data = await resp.json();
 
     if (!data.success) {
-      console.error("Gagal memuat statistik");
+      console.error("Gagal memuat statistik:", data.error);
       return;
     }
 
@@ -225,81 +376,100 @@ async function loadStats() {
     const values = sortedCases.map((item) => item[1]);
     const colors = labels.map((label) => COLORS[label] || "#888");
 
+    // 🔥 Perbaikan: destroy chart lama sebelum buat baru
+    ["perkaraChart", "topPerkaraChart", "trendChart"].forEach((id) => {
+      const canvas = document.getElementById(id);
+      if (canvas && chartInstances[id]) {
+        chartInstances[id].destroy();
+        delete chartInstances[id];
+      }
+    });
+
     // Doughnut Chart
-    new Chart(document.getElementById("perkaraChart"), {
-      type: "doughnut",
-      data: {
-        labels,
-        datasets: [
-          {
-            data: values,
-            backgroundColor: colors,
-            borderWidth: 2,
-            borderColor: "#16213e",
-          },
-        ],
-      },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        plugins: {
-          legend: {
-            position: "right",
-            labels: {
-              color: "#ccc",
-              padding: 12,
+    chartInstances["perkaraChart"] = new Chart(
+      document.getElementById("perkaraChart"),
+      {
+        type: "doughnut",
+        data: {
+          labels,
+          datasets: [
+            {
+              data: values,
+              backgroundColor: colors,
+              borderWidth: 2,
+              borderColor: "#16213e",
+            },
+          ],
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: {
+              position: "right",
+              labels: { color: "#ccc", padding: 12 },
             },
           },
         },
       },
-    });
+    );
 
     // Top 5 Perkara
-    new Chart(document.getElementById("topPerkaraChart"), {
-      type: "bar",
-      data: {
-        labels: labels.slice(0, 5),
-        datasets: [
-          {
-            label: "Kasus",
-            data: values.slice(0, 5),
-            backgroundColor: colors.slice(0, 5),
-            borderRadius: 8,
-          },
-        ],
+    chartInstances["topPerkaraChart"] = new Chart(
+      document.getElementById("topPerkaraChart"),
+      {
+        type: "bar",
+        data: {
+          labels: labels.slice(0, 5),
+          datasets: [
+            {
+              label: "Kasus",
+              data: values.slice(0, 5),
+              backgroundColor: colors.slice(0, 5),
+              borderRadius: 8,
+            },
+          ],
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: { legend: { display: false } },
+        },
       },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        plugins: {
-          legend: {
-            display: false,
+    );
+
+    // Tren Perkara per Tahun
+    const years = Object.keys(stats.trend_data).sort(
+      (a, b) => parseInt(a) - parseInt(b),
+    );
+    const topCases = labels.slice(0, 5);
+
+    chartInstances["trendChart"] = new Chart(
+      document.getElementById("trendChart"),
+      {
+        type: "line",
+        data: {
+          labels: years,
+          datasets: topCases.map((perkara) => ({
+            label: perkara,
+            data: years.map((tahun) => stats.trend_data[tahun]?.[perkara] || 0),
+            borderColor: COLORS[perkara] || "#888",
+            backgroundColor: (COLORS[perkara] || "#888") + "33",
+            tension: 0.4,
+            fill: true,
+          })),
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: { legend: { labels: { color: "#ccc" } } },
+          scales: {
+            x: { ticks: { color: "#ccc" } },
+            y: { ticks: { color: "#ccc" } },
           },
         },
       },
-    });
-
-    // Tren Perkara per Tahun
-    const years = Object.keys(stats.trend_data);
-    const topCases = labels.slice(0, 5);
-
-    new Chart(document.getElementById("trendChart"), {
-      type: "line",
-      data: {
-        labels: years,
-        datasets: topCases.map((perkara) => ({
-          label: perkara,
-          data: years.map((tahun) => stats.trend_data[tahun]?.[perkara] || 0),
-          borderColor: COLORS[perkara] || "#888",
-          tension: 0.4,
-          fill: false,
-        })),
-      },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-      },
-    });
+    );
 
     chartsBuilt = true;
   } catch (err) {
@@ -312,35 +482,70 @@ async function loadStats() {
 // ═══════════════════════════════════════════════════════════════════════════
 async function loadHistory(page = 1) {
   try {
+    const tbody = document.getElementById("historyBody");
+    tbody.innerHTML = `
+      <tr>
+        <td colspan="14" style="text-align:center;color:#555;padding:30px">
+          <span class="spinner"></span> Memuat riwayat…
+        </td>
+      </tr>
+    `;
+
     const resp = await fetch(`/api/history?page=${page}`);
     const data = await resp.json();
 
-    // Support both {success, history} and {data, total, pages} response shapes
-    const rows = data.history || data.data || [];
+    if (!data.success) {
+      tbody.innerHTML = `
+        <tr>
+          <td colspan="14" style="text-align:center;color:#ff6b6b;padding:30px">
+            ❌ Gagal memuat riwayat: ${data.error || "Unknown error"}
+          </td>
+        </tr>
+      `;
+      return;
+    }
+
+    const rows = data.history || [];
     const pages = data.pages || 1;
 
-    const tbody = document.getElementById("historyBody");
     if (!rows.length) {
-      tbody.innerHTML =
-        '<tr><td colspan="6" style="text-align:center;color:#555;padding:28px">Belum ada riwayat klasifikasi</td></tr>';
+      tbody.innerHTML = `
+        <tr>
+          <td colspan="14" style="text-align:center;color:#555;padding:28px">
+            Belum ada riwayat klasifikasi
+          </td>
+        </tr>
+      `;
     } else {
       tbody.innerHTML = rows
         .map(
-          (r) => `
+          (r, index) => `
             <tr>
-            <td style="white-space:nowrap">${r.waktu || r.time || "-"}</td>
-            <td>${r.no_lp || "-"}</td>
-            <td style="max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"
-                title="${(r.mo || "").replace(/"/g, "&quot;")}">${r.mo ? r.mo.substring(0, 70) + (r.mo.length > 70 ? "…" : "") : "-"}</td>
-            <td><span class="tag tag-${r.prediksi || r.prediction}">${r.prediksi || r.prediction || "-"}</span></td>
-            <td>${r.confidence}%</td>
-            <td>
+              <td>${(page - 1) * 20 + index + 1}</td>
+              <td>${r.no_lp || "-"}</td>
+              <td>${r.tgl_laporan || "-"}</td>
+              <td>
+                <span class="tag" style="background:${COLORS[r.prediction] || "#888"}22;color:${COLORS[r.prediction] || "#888"};border:1px solid ${COLORS[r.prediction] || "#888"}">
+                  ${r.prediction || "-"}
+                </span>
+              </td>
+              <td>${r.pelapor || "-"}</td>
+              <td>${r.terlapor || "-"}</td>
+              <td>${r.tkp || "-"}</td>
+              <td>${r.desa || "-"}</td>
+              <td style="max-width:150px;white-space:normal;font-size:0.85em;">${r.barang_bukti || "-"}</td>
+              <td style="max-width:250px;white-space:normal;font-size:0.85em;">${r.mo || "-"}</td>
+              <td>${r.proses || "-"}</td>
+              <td>${r.ket || "-"}</td>
+              <td><strong>${r.confidence ? r.confidence.toFixed(2) + "%" : "0%"}</strong></td>
+              <td>
                 <div style="display:flex;gap:5px">
-                <button class="btn btn-secondary" style="padding:4px 10px;font-size:.78em" onclick="viewRecord(${r.id})">👁️</button>
-                <button class="btn btn-danger"    style="padding:4px 10px;font-size:.78em" onclick="deleteRecord(${r.id})">🗑️</button>
+                  <button class="btn btn-secondary" onclick="viewRecord(${r.id})" style="padding:4px 8px;font-size:0.8em;">Lihat</button>
+                  <button class="btn btn-danger" onclick="deleteRecord(${r.id})" style="padding:4px 8px;font-size:0.8em;">Hapus</button>
                 </div>
-            </td>
-            </tr>`,
+              </td>
+            </tr>
+          `,
         )
         .join("");
     }
@@ -348,32 +553,54 @@ async function loadHistory(page = 1) {
     // Pagination
     const pag = document.getElementById("pagination");
     pag.innerHTML = "";
-    for (let i = 1; i <= pages; i++) {
-      const b = document.createElement("button");
-      b.className = "page-btn" + (i === page ? " active" : "");
-      b.textContent = i;
-      b.onclick = () => loadHistory(i);
-      pag.appendChild(b);
+    if (pages > 1) {
+      for (let i = 1; i <= pages; i++) {
+        const b = document.createElement("button");
+        b.className = "page-btn" + (i === page ? " active" : "");
+        b.textContent = i;
+        b.onclick = () => loadHistory(i);
+        pag.appendChild(b);
+      }
     }
   } catch (err) {
     console.error("loadHistory error:", err);
+    document.getElementById("historyBody").innerHTML = `
+      <tr>
+        <td colspan="14" style="text-align:center;color:#ff6b6b;padding:30px">
+          ❌ Gagal memuat riwayat
+        </td>
+      </tr>
+    `;
   }
 }
 
+// 🔥 Perbaikan: fetch detail by ID, tidak fetch semua history
 async function viewRecord(id) {
   try {
-    const resp = await fetch(`/api/history?page=1`);
+    const resp = await fetch(`/api/history/${id}`);
     const data = await resp.json();
-    const rows = data.history || data.data || [];
-    const rec = rows.find((r) => r.id === id);
-    if (!rec) return;
 
+    if (!data.success || !data.data) {
+      toast("Record tidak ditemukan", "err");
+      return;
+    }
+
+    const rec = data.data;
+
+    // Isi form
     document.getElementById("mo").value = rec.mo || "";
     document.getElementById("noLp").value = rec.no_lp || "";
+    document.getElementById("tglLp").value = rec.tgl_laporan || "";
     document.getElementById("tkp").value = rec.tkp || "";
+    document.getElementById("desa").value = rec.desa || "";
     document.getElementById("pelapor").value = rec.pelapor || "";
     document.getElementById("terlapor").value = rec.terlapor || "";
     document.getElementById("barangBukti").value = rec.barang_bukti || "";
+    document.getElementById("proses").value = rec.proses || "";
+    document.getElementById("ket").value = rec.ket || "";
+
+    document.getElementById("charCount").textContent =
+      `${(rec.mo || "").length} / 3000`;
 
     // Pindah ke tab klasifikasi
     document
@@ -385,30 +612,50 @@ async function viewRecord(id) {
     document.querySelector('[data-tab="klasifikasi"]').classList.add("active");
     document.getElementById("tab-klasifikasi").classList.add("active");
 
+    // Render hasil
     renderResult({
-      prediction: rec.prediksi || rec.prediction,
+      prediction: rec.prediction,
       confidence: rec.confidence,
-      scores: rec.scores || {},
+      scores: {},
       method: "naive-bayes",
     });
   } catch (err) {
-    console.error(err);
+    console.error("viewRecord error:", err);
+    toast("Gagal memuat record", "err");
   }
 }
 
 async function deleteRecord(id) {
   if (!confirm("Hapus record ini?")) return;
-  await fetch(`/api/history/${id}`, { method: "DELETE" });
-  loadHistory(1);
-  toast("Record dihapus", "ok");
+  try {
+    const resp = await fetch(`/api/history/${id}`, { method: "DELETE" });
+    const data = await resp.json();
+    if (data.success) {
+      loadHistory(1);
+      toast("Record dihapus", "ok");
+    } else {
+      toast("Gagal menghapus: " + (data.error || ""), "err");
+    }
+  } catch (err) {
+    toast("Gagal menghapus record", "err");
+  }
 }
 
 async function clearHistory() {
   if (!confirm("Hapus SEMUA riwayat? Tindakan ini tidak dapat dibatalkan."))
     return;
-  await fetch("/api/history/clear", { method: "DELETE" });
-  loadHistory(1);
-  toast("Semua riwayat dihapus", "ok");
+  try {
+    const resp = await fetch("/api/history/clear", { method: "DELETE" });
+    const data = await resp.json();
+    if (data.success) {
+      loadHistory(1);
+      toast("Semua riwayat dihapus", "ok");
+    } else {
+      toast("Gagal menghapus: " + (data.error || ""), "err");
+    }
+  } catch (err) {
+    toast("Gagal menghapus riwayat", "err");
+  }
 }
 
 function exportCSV() {
@@ -433,6 +680,13 @@ function toast(msg, type = "ok") {
 // INIT
 // ═══════════════════════════════════════════════════════════════════════════
 document.addEventListener("DOMContentLoaded", () => {
+  initForm();
   loadHeaderStats();
   loadHistory(1);
+
+  // 🔥 Perbaikan: auto-load stats jika tab statistik aktif secara default
+  const statTab = document.getElementById("tab-statistik");
+  if (statTab && statTab.classList.contains("active")) {
+    loadStats();
+  }
 });
