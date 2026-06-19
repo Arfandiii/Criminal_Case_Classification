@@ -6,6 +6,7 @@ import io
 import tempfile
 from datetime import datetime
 import re
+import string
 import traceback
 
 from flask import (
@@ -15,6 +16,16 @@ from flask import (
     request,
     send_file
 )
+
+# ── NLP Libraries (lazy init) ──
+try:
+    import nltk
+    from nltk.corpus import stopwords
+    from Sastrawi.Stemmer.StemmerFactory import StemmerFactory
+    NLP_AVAILABLE = True
+except ImportError:
+    NLP_AVAILABLE = False
+    print("⚠️ NLTK/Sastrawi tidak tersedia, fallback ke preprocessing dasar")
 
 app = Flask(__name__)
 
@@ -37,6 +48,78 @@ try:
         print(f"⚠️ Model not found at: {MODEL_PATH}")
 except Exception as e:
     print(f"❌ Error loading model: {e}")
+
+# =====================================================
+# NLP RESOURCES (load once)
+# =====================================================
+_stop_words = None
+_stemmer = None
+_kamus_dict = None
+_KATA_DASAR = None
+
+
+def _init_nlp_resources():
+    """Inisialisasi stopwords, stemmer, dan kamus normalisasi."""
+    global _stop_words, _stemmer, _kamus_dict, _KATA_DASAR
+
+    if not NLP_AVAILABLE:
+        return
+
+    # --- Stopwords ---
+    try:
+        nltk.data.find('corpora/stopwords')
+    except LookupError:
+        nltk.download('stopwords', quiet=True)
+
+    stop_words = set(stopwords.words('indonesian'))
+    important_words = {
+        'korban', 'pelaku', 'tersangka', 'terlapor',
+        'penganiayaan', 'pencurian', 'pemerkosaan', 'kekerasan'
+    }
+    _stop_words = stop_words - important_words
+
+    # --- Stemmer ---
+    factory = StemmerFactory()
+    _stemmer = factory.create_stemmer()
+
+    # --- Kata dasar yang tidak di-stem ---
+    _KATA_DASAR = {
+        'pelaku', 'petugas', 'tersangka', 'terlapor', 'pemilik',
+        'penjual', 'menguras', 'pembeli', 'penumpang', 'perusakan',
+        'pengemudi', 'penghuni', 'pengunjung', 'kiriman', 'tabungan',
+        'masakan', 'bawaan', 'titipan', 'pakaian', 'laporan',
+        'tertuduh', 'terdakwa', 'keseluruhan', 'kebanyakan', 'belur'
+    }
+
+    # --- Kamus Normalisasi ---
+    kamus_path = os.path.join(PROJECT_ROOT, "data", "raw", "kamuskatabaku.xlsx")
+    if os.path.exists(kamus_path):
+        try:
+            kamus_df = pd.read_excel(kamus_path)
+            kamus_df = kamus_df[kamus_df['tidak_baku'] != 'tidak_baku'].reset_index(drop=True)
+            kamus_df['tidak_baku'] = (
+                kamus_df['tidak_baku']
+                .astype(str)
+                .str.lower()
+                .str.strip()
+            )
+            kamus_df['kata_baku'] = (
+                kamus_df['kata_baku']
+                .astype(str)
+                .str.lower()
+                .str.strip()
+            )
+            _kamus_dict = dict(zip(kamus_df['tidak_baku'], kamus_df['kata_baku']))
+            print(f"✅ Kamus normalisasi loaded: {len(_kamus_dict)} entri")
+        except Exception as e:
+            print(f"⚠️ Error loading kamus: {e}")
+            _kamus_dict = {}
+    else:
+        print(f"⚠️ Kamus tidak ditemukan: {kamus_path}")
+        _kamus_dict = {}
+
+
+_init_nlp_resources()
 
 # =====================================================
 # DATABASE
@@ -95,17 +178,59 @@ def index():
     return render_template("index.html")
 
 # =====================================================
-# PREPROCESSING TEXT
+# PREPROCESSING TEXT (mirrors training pipeline)
 # =====================================================
 
 def preprocess(text):
-    if not text:
+    """
+    Pipeline preprocessing lengkap:
+    1. Cleaning        – hapus angka, tanda baca, karakter aneh
+    2. Case Folding    – lowercase
+    3. Normalisasi     – tidak baku → baku (via kamus)
+    4. Tokenisasi      – split unigram
+    5. Stopword Removal– hapus stopword + kata ≤2 huruf
+    6. Stemming        – Sastrawi (kecuali KATA_DASAR)
+    """
+    if not text or pd.isna(text) or str(text).strip() == "":
         return ""
-    text = str(text).lower()
-    # Jangan hapus angka (penting untuk tahun, plat, dsb)
-    text = re.sub(r"[^a-zA-Z0-9\s]", " ", text)
-    text = re.sub(r"\s+", " ", text).strip()
-    return text
+
+    text = str(text)
+
+    # 1. Cleaning
+    text = re.sub(r'\d+', ' ', text)
+    text = re.sub(rf"[{re.escape(string.punctuation)}]", " ", text)
+    text = re.sub(r'[^a-zA-Z\s]', ' ', text)
+    text = re.sub(r'\s+', ' ', text).strip()
+
+    # 2. Case Folding
+    text = text.lower().strip()
+
+    # 3. Normalisasi
+    if _kamus_dict and text:
+        words = text.split()
+        words = [_kamus_dict.get(word, word) for word in words]
+        text = ' '.join(words)
+
+    # 4. Tokenisasi
+    tokens = text.split()
+    if not tokens:
+        return ""
+
+    # 5. Stopword Removal
+    if _stop_words is not None:
+        tokens = [w for w in tokens if w not in _stop_words and len(w) > 2]
+
+    # 6. Stemming
+    if _stemmer is not None and _KATA_DASAR is not None:
+        stemmed = []
+        for token in tokens:
+            if token in _KATA_DASAR:
+                stemmed.append(token)
+            else:
+                stemmed.append(_stemmer.stem(token))
+        tokens = stemmed
+
+    return ' '.join(tokens)
 
 # =====================================================
 # PREDICT API

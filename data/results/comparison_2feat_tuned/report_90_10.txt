@@ -1,0 +1,13 @@
+Classification Report - Split 90_10 (Tuned)
+==================================================
+              precision    recall  f1-score   support
+
+     Narkoba     1.0000    0.8333    0.9091         6
+   Pencurian     1.0000    1.0000    1.0000        23
+Penganiayaan     1.0000    1.0000    1.0000        11
+    Penipuan     0.9167    1.0000    0.9565        11
+   Perusakan     1.0000    1.0000    1.0000         9
+
+    accuracy                         0.9833        60
+   macro avg     0.9833    0.9667    0.9731        60
+weighted avg     0.9847    0.9833    0.9829        60
