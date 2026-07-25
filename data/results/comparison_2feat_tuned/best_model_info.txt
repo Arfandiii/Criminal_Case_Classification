@@ -1,0 +1,6 @@
+MODEL TERBAIK (REFERENSI)
+Split: 90_10
+Akurasi: 0.9667
+Macro F1: 0.9571
+
+Catatan: Model deployment bisa berbeda.

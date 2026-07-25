@@ -1,0 +1,69 @@
+CLASSIFICATION REPORT - SEMUA SPLIT
+============================================================
+
+============================================================
+Classification Report - Split 60_40
+Akurasi: 0.9409
+============================================================
+              precision    recall  f1-score   support
+
+     Narkoba     1.0000    0.9167    0.9565        24
+   Pencurian     0.8990    0.9889    0.9418        90
+Penganiayaan     0.9767    0.9545    0.9655        44
+    Penipuan     0.9767    0.9545    0.9655        44
+   Perusakan     0.9333    0.8000    0.8615        35
+
+    accuracy                         0.9409       237
+   macro avg     0.9572    0.9229    0.9382       237
+weighted avg     0.9432    0.9409    0.9402       237
+
+
+============================================================
+Classification Report - Split 70_30
+Akurasi: 0.9663
+============================================================
+              precision    recall  f1-score   support
+
+     Narkoba     1.0000    0.8889    0.9412        18
+   Pencurian     0.9437    1.0000    0.9710        67
+Penganiayaan     1.0000    0.9697    0.9846        33
+    Penipuan     0.9697    0.9697    0.9697        33
+   Perusakan     0.9615    0.9259    0.9434        27
+
+    accuracy                         0.9663       178
+   macro avg     0.9750    0.9508    0.9620       178
+weighted avg     0.9673    0.9663    0.9661       178
+
+
+============================================================
+Classification Report - Split 80_20
+Akurasi: 0.9664
+============================================================
+              precision    recall  f1-score   support
+
+     Narkoba     1.0000    0.9167    0.9565        12
+   Pencurian     0.9375    1.0000    0.9677        45
+Penganiayaan     1.0000    1.0000    1.0000        22
+    Penipuan     0.9545    0.9545    0.9545        22
+   Perusakan     1.0000    0.8889    0.9412        18
+
+    accuracy                         0.9664       119
+   macro avg     0.9784    0.9520    0.9640       119
+weighted avg     0.9680    0.9664    0.9661       119
+
+
+============================================================
+Classification Report - Split 90_10
+Akurasi: 0.9667
+============================================================
+              precision    recall  f1-score   support
+
+     Narkoba     1.0000    0.8333    0.9091         6
+   Pencurian     0.9583    1.0000    0.9787        23
+Penganiayaan     1.0000    1.0000    1.0000        11
+    Penipuan     0.9167    1.0000    0.9565        11
+   Perusakan     1.0000    0.8889    0.9412         9
+
+    accuracy                         0.9667        60
+   macro avg     0.9750    0.9444    0.9571        60
+weighted avg     0.9688    0.9667    0.9660        60
