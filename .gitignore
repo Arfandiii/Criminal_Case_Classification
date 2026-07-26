@@ -1,0 +1,6 @@
+apk/.venv/
+apk/__pycache__/
+__pycache__/
+*.pyc
+apk/kasus.db
+.env
