@@ -149,11 +149,12 @@ function validateForm() {
 async function predictCase() {
   try {
     const mo = document.getElementById("mo").value.trim();
+    const barang_bukti = document.getElementById("barangBukti").value.trim();
 
     const resp = await fetch("/api/predict", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ mo }),
+      body: JSON.stringify({ mo, barang_bukti }),
     });
 
     const data = await resp.json();

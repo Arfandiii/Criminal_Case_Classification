@@ -8,6 +8,7 @@ from datetime import datetime
 import re
 import string
 import traceback
+from scipy.sparse import hstack
 
 from flask import (
     Flask,
@@ -36,16 +37,27 @@ app = Flask(__name__)
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 PROJECT_ROOT = os.path.dirname(BASE_DIR)
 DATA_PATH = os.path.join(PROJECT_ROOT, "data", "processed", "data_kriminal_processed.csv")
-MODEL_PATH = os.path.join(PROJECT_ROOT, "data", "models", "model_pipeline.pkl")
 
-# Load model
+# Model split terpilih: 80:20 (sesuai hasil training di train_all_splits.ipynb)
+MODEL_DIR = os.path.join(PROJECT_ROOT, "data", "models", "comparison_2feat_tuned")
+SPLIT_NAME = "80_20"
+MODEL_PATH = os.path.join(MODEL_DIR, f"model_{SPLIT_NAME}_final.pkl")
+VEC_MO_PATH = os.path.join(MODEL_DIR, f"vectorizer_mo_{SPLIT_NAME}_final.pkl")
+VEC_BB_PATH = os.path.join(MODEL_DIR, f"vectorizer_bb_{SPLIT_NAME}_final.pkl")
+
+# Load model (MultinomialNB dilatih di atas fitur gabungan hstack([TF-IDF(MO), TF-IDF(BB)]))
 model = None
+vec_mo = None
+vec_bb = None
 try:
-    if os.path.exists(MODEL_PATH):
+    if os.path.exists(MODEL_PATH) and os.path.exists(VEC_MO_PATH) and os.path.exists(VEC_BB_PATH):
         model = joblib.load(MODEL_PATH)
-        print(f"✅ Model loaded: {MODEL_PATH}")
+        vec_mo = joblib.load(VEC_MO_PATH)
+        vec_bb = joblib.load(VEC_BB_PATH)
+        print(f"✅ Model + vectorizer (split {SPLIT_NAME}) loaded dari {MODEL_DIR}")
     else:
-        print(f"⚠️ Model not found at: {MODEL_PATH}")
+        missing = [p for p in (MODEL_PATH, VEC_MO_PATH, VEC_BB_PATH) if not os.path.exists(p)]
+        print(f"⚠️ File model tidak lengkap, tidak ditemukan: {missing}")
 except Exception as e:
     print(f"❌ Error loading model: {e}")
 
@@ -148,12 +160,19 @@ def init_db():
             barang_bukti TEXT,
             mo TEXT,
             mo_final_text TEXT,
+            bb_final_text TEXT,
             proses TEXT,
             ket TEXT,
             confidence REAL,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
     """)
+    # Migrasi ringan: tambahkan kolom bb_final_text jika DB lama belum punya
+    cursor.execute("PRAGMA table_info(kasus)")
+    existing_cols = {row[1] for row in cursor.fetchall()}
+    if "bb_final_text" not in existing_cols:
+        cursor.execute("ALTER TABLE kasus ADD COLUMN bb_final_text TEXT")
+
     conn.commit()
     conn.close()
 
@@ -238,7 +257,7 @@ def preprocess(text):
 
 @app.route("/api/predict", methods=["POST"])
 def predict():
-    if model is None:
+    if model is None or vec_mo is None or vec_bb is None:
         return jsonify({
             "success": False,
             "error": "Model ML belum tersedia. Hubungi admin."
@@ -253,7 +272,9 @@ def predict():
             }), 400
 
         mo = data.get("mo", "")
+        barang_bukti = data.get("barang_bukti", "")
         clean_mo = preprocess(mo)
+        clean_bb = preprocess(barang_bukti)
 
         if not clean_mo:
             return jsonify({
@@ -261,8 +282,12 @@ def predict():
                 "error": "MO tidak valid setelah preprocessing"
             }), 400
 
-        pred = model.predict([clean_mo])[0]
-        proba = model.predict_proba([clean_mo])[0]
+        X_mo = vec_mo.transform([clean_mo])
+        X_bb = vec_bb.transform([clean_bb])
+        X = hstack([X_mo, X_bb])
+
+        pred = model.predict(X)[0]
+        proba = model.predict_proba(X)[0]
         classes = model.classes_
 
         scores = {
@@ -342,16 +367,22 @@ def save_case():
             }), 400
 
         mo = data.get("mo", "")
+        barang_bukti_in = data.get("barang_bukti", "")
         clean_mo = preprocess(mo)
+        clean_bb = preprocess(barang_bukti_in)
 
         prediction = "Unknown"
         confidence = 0.0
         scores = {}
 
-        if model is not None and clean_mo:
+        if model is not None and vec_mo is not None and vec_bb is not None and clean_mo:
             try:
-                pred = model.predict([clean_mo])[0]
-                proba = model.predict_proba([clean_mo])[0]
+                X_mo = vec_mo.transform([clean_mo])
+                X_bb = vec_bb.transform([clean_bb])
+                X = hstack([X_mo, X_bb])
+
+                pred = model.predict(X)[0]
+                proba = model.predict_proba(X)[0]
                 classes = model.classes_
                 scores = {
                     classes[i]: round(float(proba[i]) * 100, 2)
@@ -368,10 +399,10 @@ def save_case():
         cursor.execute("""
             INSERT INTO kasus (
                 no_laporan, tgl_laporan, perkara, pelapor, terlapor,
-                tkp, desa, barang_bukti, mo, mo_final_text,
+                tkp, desa, barang_bukti, mo, mo_final_text, bb_final_text,
                 proses, ket, confidence
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """, (
             data["no_lp"],
             data["tgl_laporan"],
@@ -380,9 +411,10 @@ def save_case():
             data["terlapor"],
             data["tkp"],
             data["desa"],
-            data.get("barang_bukti", ""),
+            barang_bukti_in,
             data["mo"],
             clean_mo,
+            clean_bb,
             data["proses"],
             data["ket"],
             confidence
