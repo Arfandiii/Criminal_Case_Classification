@@ -218,6 +218,8 @@ async function classifyCase() {
     if (saveResp.success) {
       toast("Data berhasil disimpan", "ok");
       loadHistory(1);
+      loadHeaderStats();
+      loadStats(true);
     } else {
       toast("Gagal menyimpan data: " + (saveResp.error || ""), "err");
     }
@@ -259,8 +261,12 @@ function renderResult(result) {
   `;
 
   // Confidence
+  const confVal =
+    typeof result.confidence === "number"
+      ? result.confidence.toFixed(2)
+      : result.confidence;
   document.getElementById("confidenceText").textContent =
-    `Confidence: ${result.confidence}%`;
+    `Confidence: ${confVal}%`;
 
   // Method Badge
   const badge = document.getElementById("methodBadge");
@@ -509,6 +515,9 @@ async function loadHistory(page = 1) {
     const rows = data.history || [];
     const pages = data.pages || 1;
 
+    const totalEl = document.getElementById("historyTotal");
+    if (totalEl) totalEl.textContent = data.total ?? rows.length;
+
     if (!rows.length) {
       tbody.innerHTML = `
         <tr>
@@ -617,7 +626,7 @@ async function viewRecord(id) {
     renderResult({
       prediction: rec.prediction,
       confidence: rec.confidence,
-      scores: {},
+      scores: rec.scores || {},
       method: "naive-bayes",
     });
   } catch (err) {
@@ -633,6 +642,8 @@ async function deleteRecord(id) {
     const data = await resp.json();
     if (data.success) {
       loadHistory(1);
+      loadHeaderStats();
+      loadStats(true);
       toast("Record dihapus", "ok");
     } else {
       toast("Gagal menghapus: " + (data.error || ""), "err");
@@ -650,6 +661,8 @@ async function clearHistory() {
     const data = await resp.json();
     if (data.success) {
       loadHistory(1);
+      loadHeaderStats();
+      loadStats(true);
       toast("Semua riwayat dihapus", "ok");
     } else {
       toast("Gagal menghapus: " + (data.error || ""), "err");

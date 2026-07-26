@@ -319,11 +319,11 @@ def generate_lp():
     conn = get_db()
     cursor = conn.cursor()
 
-    # Gunakan lastrowid untuk anti-race condition
-    cursor.execute("INSERT INTO kasus (no_laporan) VALUES (?)", ("TEMP",))
-    new_id = cursor.lastrowid
-    cursor.execute("DELETE FROM kasus WHERE id = ?", (new_id,))
-    conn.commit()
+    # Non-destruktif: nomor LP dihitung dari jumlah kasus yang sudah benar-benar
+    # tersimpan (bukan dari AUTOINCREMENT), supaya reset/lihat form berulang kali
+    # tidak "membakar" nomor urut.
+    cursor.execute("SELECT COUNT(*) FROM kasus WHERE no_laporan != 'TEMP'")
+    new_id = cursor.fetchone()[0] + 1
     conn.close()
 
     now = datetime.now()
@@ -444,7 +444,6 @@ def save_case():
 @app.route("/api/statistics")
 def statistics():
     try:
-        # Selalu baca dari DATA_PATH (CSV training), bukan dari database
         if not os.path.exists(DATA_PATH):
             return jsonify({
                 "success": False,
@@ -452,30 +451,56 @@ def statistics():
             }), 404
 
         df = pd.read_csv(DATA_PATH)
-        total_cases = len(df)
 
-        # Distribusi perkara
+        # Distribusi perkara (dari CSV training)
         case_types = {}
         if "PERKARA" in df.columns:
             case_types = df["PERKARA"].value_counts().to_dict()
 
-        # Ambil tahun dari kolom TGL_LAPORAN
-        years = []
-        start_year = datetime.now().year
-        end_year = datetime.now().year
+        # Tahun dari CSV training
+        years = set()
         trend_data = {}
 
         if "TGL_LAPORAN" in df.columns:
             df["TAHUN"] = df["TGL_LAPORAN"].astype(str).str.extract(r"(\d{4})")[0]
             df["TAHUN"] = pd.to_numeric(df["TAHUN"], errors="coerce")
-            years = sorted(df["TAHUN"].dropna().unique().astype(int).tolist())
-            start_year = years[0] if years else datetime.now().year
-            end_year = years[-1] if years else datetime.now().year
+            csv_years = sorted(df["TAHUN"].dropna().unique().astype(int).tolist())
+            years.update(csv_years)
 
-            for tahun in years:
+            for tahun in csv_years:
                 subset = df[df["TAHUN"] == tahun]
                 if "PERKARA" in subset.columns:
                     trend_data[str(tahun)] = subset["PERKARA"].value_counts().to_dict()
+
+        # Gabungkan dengan kasus baru yang tersimpan di database (mis. tahun 2026+)
+        conn = get_db()
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT tgl_laporan, perkara FROM kasus
+            WHERE no_laporan != 'TEMP' AND perkara IS NOT NULL
+        """)
+        db_rows = cursor.fetchall()
+        conn.close()
+
+        total_cases = len(df) + len(db_rows)
+
+        for r in db_rows:
+            perkara = r["perkara"] or "Unknown"
+            case_types[perkara] = case_types.get(perkara, 0) + 1
+
+            tahun_match = re.search(r"(\d{4})", str(r["tgl_laporan"] or ""))
+            if not tahun_match:
+                continue
+            tahun = tahun_match.group(1)
+            years.add(int(tahun))
+
+            if tahun not in trend_data:
+                trend_data[tahun] = {}
+            trend_data[tahun][perkara] = trend_data[tahun].get(perkara, 0) + 1
+
+        years = sorted(years)
+        start_year = years[0] if years else datetime.now().year
+        end_year = years[-1] if years else datetime.now().year
 
         return jsonify({
             "success": True,
@@ -570,7 +595,8 @@ def get_history_detail(id):
         cursor.execute("""
             SELECT id, no_laporan, tgl_laporan, tkp, desa,
                    pelapor, terlapor, barang_bukti, mo,
-                   proses, ket, perkara, confidence, created_at
+                   proses, ket, perkara, confidence, created_at,
+                   mo_final_text, bb_final_text
             FROM kasus
             WHERE id = ? AND no_laporan != 'TEMP'
         """, (id,))
@@ -582,6 +608,23 @@ def get_history_detail(id):
                 "success": False,
                 "error": "Record tidak ditemukan"
             }), 404
+
+        scores = {}
+        if model is not None and vec_mo is not None and vec_bb is not None:
+            try:
+                clean_mo = row["mo_final_text"] or ""
+                clean_bb = row["bb_final_text"] or ""
+                X_mo = vec_mo.transform([clean_mo])
+                X_bb = vec_bb.transform([clean_bb])
+                X = hstack([X_mo, X_bb])
+                proba = model.predict_proba(X)[0]
+                classes = model.classes_
+                scores = {
+                    classes[i]: round(float(proba[i]) * 100, 2)
+                    for i in range(len(classes))
+                }
+            except Exception as e:
+                print(f"Gagal hitung ulang skor riwayat: {e}")
 
         return jsonify({
             "success": True,
@@ -599,6 +642,7 @@ def get_history_detail(id):
                 "ket": row["ket"],
                 "prediction": row["perkara"],
                 "confidence": row["confidence"],
+                "scores": scores,
                 "waktu": row["created_at"]
             }
         })
