@@ -4,3 +4,10 @@ __pycache__/
 *.pyc
 apk/kasus.db
 .env
+
+# Model splits selain 80_20 tidak ikut ke-push (tetap ada di disk lokal untuk
+# perbandingan skripsi, hanya dikecualikan dari repo hosting)
+data/models/comparison_2feat_tuned/*.pkl
+!data/models/comparison_2feat_tuned/model_80_20_final.pkl
+!data/models/comparison_2feat_tuned/vectorizer_mo_80_20_final.pkl
+!data/models/comparison_2feat_tuned/vectorizer_bb_80_20_final.pkl
